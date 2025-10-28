@@ -87,39 +87,29 @@ export function AppNavigator() {
   const dispatch = useDispatch();
   const { user, loading } = useSelector((state: RootState) => state.auth);
 
-  console.log('AppNavigator rendering...', { userEmail: user?.email, loading });
-
   useEffect(() => {
-    console.log('Setting up auth listener...');
     let isMounted = true;
 
-    const safeDispatch = (action: any) => {
-      console.log('Dispatching action:', action?.type, action);
-      if (isMounted) {
-        dispatch(action);
-      }
-    };
-
-    const resolveUserFromSession = async (session: Session | null) => {
-      if (!isMounted) return;
-
+    const syncUser = async (session: Session | null, toggleLoader: boolean) => {
       const idauth = session?.user?.id;
       const email = session?.user?.email;
 
+      const finishLoading = () => {
+        if (toggleLoader && isMounted) {
+          dispatch(setLoading(false));
+        }
+      };
+
       if (!idauth && !email) {
-        safeDispatch(setUser(null));
+        if (isMounted) {
+          dispatch(setUser(null));
+        }
+        finishLoading();
         return;
       }
 
       try {
-        console.log(
-          `Fetching user data for session`,
-          JSON.stringify({ idauth, email }, null, 2)
-        );
-
-        let profile = idauth
-          ? await authService.getUserProfileByIdauth(idauth)
-          : null;
+        let profile = idauth ? await authService.getUserProfileByIdauth(idauth) : null;
 
         if (!profile && email) {
           profile = await authService.getUserProfileByEmail(email);
@@ -129,63 +119,43 @@ export function AppNavigator() {
           return;
         }
 
-        if (profile) {
-          console.log('User data fetched successfully:', profile.email);
-          safeDispatch(setUser(profile));
-        } else {
-          console.warn('User profile not found for email:', email);
-          safeDispatch(setUser(null));
-        }
+        dispatch(setUser(profile || null));
       } catch (error) {
         console.error('Error resolving user profile:', error);
-        safeDispatch(setUser(null));
+        if (isMounted) {
+          dispatch(setUser(null));
+        }
+      } finally {
+        finishLoading();
       }
     };
 
     const initialize = async () => {
-      console.log('initialize -> setLoading(true)');
-      safeDispatch(setLoading(true));
-      try {
-        const { data, error } = await supabase.auth.getSession();
+      dispatch(setLoading(true));
+      const { data, error } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error('Error obtaining current session:', error);
-        }
-
-        await resolveUserFromSession(data?.session ?? null);
-      } finally {
-        console.log('initialize -> setLoading(false)');
-        safeDispatch(setLoading(false));
+      if (error) {
+        console.error('Error obtaining current session:', error);
       }
+
+      await syncUser(data?.session ?? null, true);
     };
 
     initialize();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log(
-          `🔔 Auth event: ${event}`,
-          session ? `User: ${session.user.email}` : 'No session'
-        );
-        console.log('auth state change -> setLoading(true)');
-        safeDispatch(setLoading(true));
-        await resolveUserFromSession(session);
-        console.log('auth state change -> setLoading(false)');
-        safeDispatch(setLoading(false));
+      async (_event, session) => {
+        await syncUser(session, false);
       }
     );
 
     return () => {
-      console.log('Cleaning up auth listener...');
       isMounted = false;
       authListener.subscription.unsubscribe();
     };
   }, [dispatch]);
 
-  console.log('Render check - loading:', loading, 'user:', user?.email);
-
   if (loading) {
-    console.log('Showing loading screen');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#6200ee" />
@@ -193,8 +163,6 @@ export function AppNavigator() {
       </View>
     );
   }
-
-  console.log('Rendering NavigationContainer with user:', user?.email || 'null');
 
   return (
     <NavigationContainer>

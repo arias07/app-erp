@@ -39,11 +39,13 @@ export const InventoryListScreen = () => {
 
   const renderItem = ({ item }: { item: ExistenciaPos }) => {
     const producto = item.productos_pos;
-    const ubicacion = item.ubicaciones?.nombre || `Ubicación #${item.id_ubicacion}`;
+    const ubicacion = item.ubicaciones?.descripcion || `Ubicación #${item.id_ubicacion}`;
     const cantidadActual = item.stock;
     const cantidadMinima = producto?.stock_minimo ?? 0;
-    const unidadMedida = producto?.unidad_medida || 'unid';
-    const categoria = producto?.categoria || 'Sin categoría';
+    const unidadMedida = producto?.presentacion || 'unid';
+    const categoria = producto?.id_categoria
+      ? `Categoría #${producto.id_categoria}`
+      : 'Sin categoría';
 
     return (
       <Card

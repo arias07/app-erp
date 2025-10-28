@@ -14,8 +14,8 @@ export interface ExistenciaPos {
     nombre: string;
     descripcion?: string;
     sku?: string;
-    unidad_medida?: string;
-    categoria?: string;
+    presentacion?: string;
+    id_categoria?: number;
     stock?: number;
     stock_minimo?: number;
     stock_maximo?: number;
@@ -24,8 +24,9 @@ export interface ExistenciaPos {
   };
   ubicaciones?: {
     id: number;
-    nombre: string;
-    descripcion?: string;
+    descripcion: string;
+    direccion?: string;
+    es_almacen?: boolean;
   };
   lotes?: {
     id: number;

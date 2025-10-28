@@ -50,7 +50,7 @@ const InventoryScreen = () => {
               {item.productos_pos?.nombre || 'Producto sin nombre'}
             </Text>
             <Text variant="bodySmall" style={styles.productDescription}>
-              {item.ubicaciones?.nombre || `Ubicación #${item.id_ubicacion}`}
+              {item.ubicaciones?.descripcion || `Ubicación #${item.id_ubicacion}`}
             </Text>
           </View>
           <Badge style={styles.stockBadge}>{item.stock}</Badge>
@@ -65,7 +65,7 @@ const InventoryScreen = () => {
           <Chip style={styles.chip}>
             <MaterialCommunityIcons name="package-variant" size={16} color="#6200ee" />
             <Text variant="labelSmall" style={styles.chipText}>
-              Lote {item.lotes?.numero_lote || item.id_lote || 'N/A'}
+              Lote {item.id_lote || 'N/A'}
             </Text>
           </Chip>
         </View>

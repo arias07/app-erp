@@ -21,8 +21,8 @@ export const inventoryService = {
             nombre,
             descripcion,
             sku,
-            unidad_medida,
-            categoria,
+            presentacion,
+            id_categoria,
             stock,
             stock_minimo,
             stock_maximo,
@@ -31,17 +31,9 @@ export const inventoryService = {
           ),
           ubicaciones (
             id,
-            nombre,
-            descripcion
-          ),
-          lotes (
-            id,
-            numero_lote,
-            fecha_vencimiento
-          ),
-          empresa (
-            id,
-            nombre
+            descripcion,
+            direccion,
+            es_almacen
           )
         `)
         .order('created_at', { ascending: false });
@@ -97,8 +89,8 @@ export const inventoryService = {
             nombre,
             descripcion,
             sku,
-            unidad_medida,
-            categoria,
+            presentacion,
+            id_categoria,
             stock,
             stock_minimo,
             stock_maximo,
@@ -107,17 +99,9 @@ export const inventoryService = {
           ),
           ubicaciones (
             id,
-            nombre,
-            descripcion
-          ),
-          lotes (
-            id,
-            numero_lote,
-            fecha_vencimiento
-          ),
-          empresa (
-            id,
-            nombre
+            descripcion,
+            direccion,
+            es_almacen
           )
         `)
         .eq('id', id)
@@ -145,8 +129,8 @@ export const inventoryService = {
             nombre,
             descripcion,
             sku,
-            unidad_medida,
-            categoria,
+            presentacion,
+            id_categoria,
             stock,
             stock_minimo,
             stock_maximo,
@@ -155,13 +139,9 @@ export const inventoryService = {
           ),
           ubicaciones (
             id,
-            nombre,
-            descripcion
-          ),
-          lotes (
-            id,
-            numero_lote,
-            fecha_vencimiento
+            descripcion,
+            direccion,
+            es_almacen
           )
         `)
         .eq('id_producto', id_producto);
@@ -188,8 +168,8 @@ export const inventoryService = {
             nombre,
             descripcion,
             sku,
-            unidad_medida,
-            categoria,
+            presentacion,
+            id_categoria,
             stock,
             stock_minimo,
             stock_maximo,
@@ -198,8 +178,9 @@ export const inventoryService = {
           ),
           ubicaciones (
             id,
-            nombre,
-            descripcion
+            descripcion,
+            direccion,
+            es_almacen
           )
         `)
         .lte('stock', threshold)
@@ -232,8 +213,8 @@ export const inventoryService = {
             nombre,
             descripcion,
             sku,
-            unidad_medida,
-            categoria,
+            presentacion,
+            id_categoria,
             stock,
             stock_minimo,
             stock_maximo,
@@ -275,8 +256,8 @@ export const inventoryService = {
             nombre,
             descripcion,
             sku,
-            unidad_medida,
-            categoria,
+            presentacion,
+            id_categoria,
             stock,
             stock_minimo,
             stock_maximo,
