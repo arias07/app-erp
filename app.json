@@ -27,18 +27,20 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.apperp",
-      "usesCleartextTraffic": true
+      "package": "com.anonymous.apperp"
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "static"
+      "output": "single"
     },
     "platforms": [
       "ios",
       "android",
       "web"
+    ],
+    "plugins": [
+      "expo-font"
     ]
   }
 }

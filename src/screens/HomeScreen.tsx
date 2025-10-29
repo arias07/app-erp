@@ -22,96 +22,108 @@ const HomeScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Card style={styles.welcomeCard}>
-        <Card.Content>
-          <View style={styles.welcomeContent}>
-            <MaterialCommunityIcons name="hand-wave" size={40} color="#6200ee" />
-            <Text variant="headlineMedium" style={styles.greeting}>
-              {getRoleGreeting(user?.rol || '')}
+    <View style={styles.wrapper}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <Card style={styles.welcomeCard}>
+          <Card.Content>
+            <View style={styles.welcomeContent}>
+              <MaterialCommunityIcons name="hand-wave" size={40} color="#6200ee" />
+              <Text variant="headlineMedium" style={styles.greeting}>
+                {getRoleGreeting(user?.rol || '')}
+              </Text>
+              <Text variant="bodyLarge" style={styles.userName}>
+                {user?.nombre_completo}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.sectionTitle}>
+              Resumen del Día
             </Text>
-            <Text variant="bodyLarge" style={styles.userName}>
-              {user?.nombre_completo}
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="clipboard-list" size={32} color="#6200ee" />
+                <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
+                <Text variant="bodySmall">Pedidos Hoy</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="package-variant" size={32} color="#6200ee" />
+                <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
+                <Text variant="bodySmall">Productos</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="alert-circle" size={32} color="#ff9800" />
+                <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
+                <Text variant="bodySmall">Alertas</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="check-circle" size={32} color="#4caf50" />
+                <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
+                <Text variant="bodySmall">Completados</Text>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Accesos Rápidos
             </Text>
-          </View>
-        </Card.Content>
-      </Card>
+            <View style={styles.quickActions}>
+              <Button
+                mode="contained"
+                icon="plus"
+                style={styles.actionButton}
+                onPress={() => console.log('Nuevo pedido')}
+              >
+                Nuevo Pedido
+              </Button>
+              <Button
+                mode="outlined"
+                icon="magnify"
+                style={styles.actionButton}
+                onPress={() => console.log('Buscar')}
+              >
+                Buscar
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
 
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            Resumen del Día
-          </Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="clipboard-list" size={32} color="#6200ee" />
-              <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
-              <Text variant="bodySmall">Pedidos Hoy</Text>
-            </View>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="package-variant" size={32} color="#6200ee" />
-              <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
-              <Text variant="bodySmall">Productos</Text>
-            </View>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="alert-circle" size={32} color="#ff9800" />
-              <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
-              <Text variant="bodySmall">Alertas</Text>
-            </View>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="check-circle" size={32} color="#4caf50" />
-              <Text variant="headlineSmall" style={styles.statNumber}>0</Text>
-              <Text variant="bodySmall">Completados</Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Accesos Rápidos
-          </Text>
-          <View style={styles.quickActions}>
-            <Button
-              mode="contained"
-              icon="plus"
-              style={styles.actionButton}
-              onPress={() => console.log('Nuevo pedido')}
-            >
-              Nuevo Pedido
-            </Button>
-            <Button
-              mode="outlined"
-              icon="magnify"
-              style={styles.actionButton}
-              onPress={() => console.log('Buscar')}
-            >
-              Buscar
-            </Button>
-          </View>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Actividad Reciente
-          </Text>
-          <Text variant="bodyMedium" style={styles.emptyState}>
-            No hay actividad reciente
-          </Text>
-        </Card.Content>
-      </Card>
-    </ScrollView>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Actividad Reciente
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptyState}>
+              No hay actividad reciente
+            </Text>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: 16,
+    paddingBottom: 32,
   },
   welcomeCard: {
     marginBottom: 16,
@@ -143,7 +155,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
   },
   statCard: {
     width: '48%',
@@ -151,16 +162,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 12,
   },
   statNumber: {
     fontWeight: 'bold',
     marginVertical: 8,
   },
   quickActions: {
-    gap: 12,
+    flexDirection: 'column',
   },
   actionButton: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   emptyState: {
     textAlign: 'center',
