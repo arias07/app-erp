@@ -92,7 +92,7 @@ export const DrawerNavigator = () => {
           name="Orders"
           component={OrdersScreen}
           options={{
-            title: 'Pedidos',
+            title: 'Ordenes',
             drawerIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="clipboard-list" size={size} color={color} />
             ),

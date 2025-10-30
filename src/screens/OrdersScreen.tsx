@@ -14,10 +14,10 @@ const OrdersScreen = () => {
               <MaterialCommunityIcons name="clipboard-list" size={48} color="#6200ee" />
             </View>
             <Text variant="headlineSmall" style={styles.title}>
-              Pedidos
+              Ordenes
             </Text>
             <Text variant="bodyMedium" style={styles.description}>
-              Gestiona y realiza seguimiento de pedidos
+              Gestiona y realiza seguimiento de ordenes de mantenimiento
             </Text>
           </Card.Content>
         </Card>
@@ -25,12 +25,12 @@ const OrdersScreen = () => {
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.sectionTitle}>
-              Estado de Pedidos
+              Estado de Ordenes
             </Text>
             <View style={styles.statusContainer}>
               <Chip icon="clock" style={styles.chip}>Pendientes: 0</Chip>
               <Chip icon="truck" style={styles.chip}>En Proceso: 0</Chip>
-              <Chip icon="check" style={styles.chip}>Completados: 0</Chip>
+              <Chip icon="check" style={styles.chip}>Completadas: 0</Chip>
             </View>
           </Card.Content>
         </Card>
@@ -40,7 +40,7 @@ const OrdersScreen = () => {
         icon="plus"
         style={styles.fab}
         onPress={() => console.log('Nuevo pedido')}
-        label="Nuevo Pedido"
+        label="Nueva Orden"
       />
     </View>
   );

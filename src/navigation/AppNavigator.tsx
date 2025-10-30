@@ -57,22 +57,23 @@ function MainTabs() {
         component={HomeScreen}
         options={{ title: 'Inicio' }}
       />
-      <Tab.Screen 
-        name="Inventory" 
-        component={InventoryScreen}
-        options={{ title: 'Inventario' }}
-      />
+
       <Tab.Screen 
         name="Orders" 
         component={OrdersScreen}
-        options={{ title: 'Pedidos' }}
+        options={{ title: 'Ordenes' }}
       />
       <Tab.Screen 
         name="Solicitudes" 
         component={SolicitudesScreen}
         options={{ 
-          title: 'Solicitudes',
+          title: 'Refacciones',
         }}
+      />
+            <Tab.Screen 
+        name="Inventory" 
+        component={InventoryScreen}
+        options={{ title: 'Inventario' }}
       />
       <Tab.Screen 
         name="Profile" 
