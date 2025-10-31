@@ -3,7 +3,7 @@ import { Usuario } from './user.types';
 export type BitacoraTipoEntrada = 'medicion' | 'general';
 
 export interface BitacoraVariable {
-  id: string;
+  id?: string;
   nombre: string;
   unidad?: string | null;
   descripcion?: string | null;
@@ -11,13 +11,15 @@ export interface BitacoraVariable {
   minimo?: number | null;
   maximo?: number | null;
   deseado?: number | null;
+  slug?: string | null;
 }
 
 export interface BitacoraPuntoMedicion {
-  id: string;
+  id?: string;
   nombre: string;
   ubicacion?: string | null;
   descripcion?: string | null;
+  slug?: string | null;
 }
 
 export interface BitacoraConcepto {

@@ -27,6 +27,7 @@ import {
   BitacoraMedicionEntrada,
   BitacoraGeneralEntrada,
   BitacoraVariable,
+  BitacoraPuntoMedicion,
 } from '../types/bitacora.types';
 import CalendarPickerModal from '../components/common/CalendarPickerModal';
 import { hasPermission } from '../constants/roles';
@@ -40,14 +41,37 @@ interface VariableInputState {
 
 type ValoresPorPunto = Record<string, Record<string, VariableInputState>>;
 
+const normalizeKey = (value?: string | null, prefix: string = 'item') =>
+  value ? value.toString() : `${prefix}-${'sin-id'}`;
+
+const resolvePuntoId = (punto: BitacoraPuntoMedicion): string => {
+  return (
+    punto.id ||
+    punto.slug ||
+    (punto.nombre ? punto.nombre.toLowerCase().replace(/\s+/g, '-') : undefined) ||
+    normalizeKey(undefined, 'punto')
+  );
+};
+
+const resolveVariableId = (variable: BitacoraVariable): string => {
+  return (
+    variable.id ||
+    variable.slug ||
+    (variable.nombre ? variable.nombre.toLowerCase().replace(/\s+/g, '-') : undefined) ||
+    normalizeKey(undefined, 'variable')
+  );
+};
+
 const buildInitialValores = (concepto: BitacoraConcepto | null): ValoresPorPunto => {
   if (!concepto) return {};
   const result: ValoresPorPunto = {};
 
   concepto.puntos_medicion.forEach((punto) => {
-    result[punto.id] = {};
+    const puntoId = resolvePuntoId(punto);
+    result[puntoId] = {};
     concepto.variables.forEach((variable) => {
-      result[punto.id][variable.id] = { valor: '', comentario: '' };
+      const variableId = resolveVariableId(variable);
+      result[puntoId][variableId] = { valor: '', comentario: '' };
     });
   });
 
@@ -144,7 +168,7 @@ const BitacorasScreen = () => {
   useEffect(() => {
     if (conceptoSeleccionado) {
       setValores(buildInitialValores(conceptoSeleccionado));
-      loadMediciones(conceptoSeleccionado.id);
+      loadMediciones(conceptoSeleccionado.id ?? conceptoSeleccionado.codigo);
     }
   }, [conceptoSeleccionado, loadMediciones]);
 
@@ -154,12 +178,13 @@ const BitacorasScreen = () => {
     field: keyof VariableInputState,
     value: string
   ) => {
+    const variableId = resolveVariableId(variable);
     setValores((prev) => ({
       ...prev,
       [puntoId]: {
         ...(prev[puntoId] ?? {}),
-        [variable.id]: {
-          ...(prev[puntoId]?.[variable.id] ?? { valor: '', comentario: '' }),
+        [variableId]: {
+          ...(prev[puntoId]?.[variableId] ?? { valor: '', comentario: '' }),
           [field]: value,
         },
       },
@@ -175,13 +200,15 @@ const BitacorasScreen = () => {
     }
 
     for (const punto of conceptoSeleccionado.puntos_medicion) {
-      const valorPunto = valores[punto.id];
+      const puntoId = resolvePuntoId(punto);
+      const valorPunto = valores[puntoId];
       if (!valorPunto) {
         return `Captura los valores para el punto de medicion ${punto.nombre}`;
       }
 
       for (const variable of conceptoSeleccionado.variables) {
-        const entrada = valorPunto[variable.id];
+        const variableId = resolveVariableId(variable);
+        const entrada = valorPunto[variableId];
         if (!entrada || entrada.valor.trim() === '') {
           return `La variable ${variable.nombre} en ${punto.nombre} es obligatoria`;
         }
@@ -218,15 +245,17 @@ const BitacorasScreen = () => {
 
       const mediciones: BitacoraMedicionDetallePunto[] = conceptoSeleccionado.puntos_medicion.map(
         (punto) => ({
-          punto_id: punto.id,
+          punto_id: punto.id || punto.slug || punto.nombre,
           punto_nombre: punto.nombre,
           variables: conceptoSeleccionado.variables.map((variable) => {
-            const entrada = valores[punto.id]?.[variable.id] ?? { valor: '', comentario: '' };
+            const puntoId = resolvePuntoId(punto);
+            const variableId = resolveVariableId(variable);
+            const entrada = valores[puntoId]?.[variableId] ?? { valor: '', comentario: '' };
             const valorNumerico =
               variable.tipo === 'numero' ? Number(entrada.valor) : entrada.valor || null;
 
             return {
-              variable_id: variable.id,
+              variable_id: variable.id || variable.slug || variable.nombre,
               variable_nombre: variable.nombre,
               unidad: variable.unidad ?? null,
               valor: valorNumerico,
@@ -408,13 +437,15 @@ const BitacorasScreen = () => {
       </Card>
 
       {conceptoSeleccionado &&
-        conceptoSeleccionado.puntos_medicion.map((punto) => (
-          <Card key={punto.id} style={styles.card}>
-            <Card.Content>
-              <View style={styles.puntoHeader}>
-                <View>
-                  <Text variant="titleMedium" style={styles.puntoTitle}>
-                    {punto.nombre}
+        conceptoSeleccionado.puntos_medicion.map((punto) => {
+          const puntoId = resolvePuntoId(punto);
+          return (
+            <Card key={puntoId} style={styles.card}>
+              <Card.Content>
+                <View style={styles.puntoHeader}>
+                  <View>
+                    <Text variant="titleMedium" style={styles.puntoTitle}>
+                      {punto.nombre}
                   </Text>
                   {punto.ubicacion ? (
                     <Text variant="bodySmall" style={styles.puntoSubtitle}>
@@ -428,13 +459,14 @@ const BitacorasScreen = () => {
               </View>
 
               {conceptoSeleccionado.variables.map((variable) => {
-                const currentValue = valores[punto.id]?.[variable.id] ?? {
+                const variableId = resolveVariableId(variable);
+                const currentValue = valores[puntoId]?.[variableId] ?? {
                   valor: '',
                   comentario: '',
                 };
 
                 return (
-                  <View key={`${punto.id}-${variable.id}`} style={styles.variableContainer}>
+                  <View key={`${puntoId}-${variableId}`} style={styles.variableContainer}>
                     <Text variant="labelLarge" style={styles.variableLabel}>
                       {variable.nombre}{' '}
                       {variable.unidad ? <Text variant="bodySmall">({variable.unidad})</Text> : null}
@@ -449,7 +481,7 @@ const BitacorasScreen = () => {
                       label="Valor registrado"
                       value={currentValue.valor}
                       onChangeText={(value) =>
-                        handleValorChange(punto.id, variable, 'valor', value)
+                        handleValorChange(puntoId, variable, 'valor', value)
                       }
                       keyboardType={variable.tipo === 'numero' ? 'numeric' : 'default'}
                       mode="outlined"
@@ -460,7 +492,7 @@ const BitacorasScreen = () => {
                       label="Comentario (opcional)"
                       value={currentValue.comentario}
                       onChangeText={(value) =>
-                        handleValorChange(punto.id, variable, 'comentario', value)
+                        handleValorChange(puntoId, variable, 'comentario', value)
                       }
                       mode="outlined"
                       style={styles.textInput}
@@ -471,7 +503,8 @@ const BitacorasScreen = () => {
               })}
             </Card.Content>
           </Card>
-        ))}
+          );
+        })}
 
       {error && mode === 'medicion' ? <HelperText type="error">{error}</HelperText> : null}
 

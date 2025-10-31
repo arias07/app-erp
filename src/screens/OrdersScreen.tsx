@@ -581,6 +581,17 @@ const OrdersScreen = () => {
   const canCreateOrder = Boolean(user?.rol && hasPermission(user.rol, 'CREATE_ORDER'));
   const canAssignSelf = Boolean(user?.rol && hasPermission(user.rol, 'ASSIGN_SELF'));
 
+  const formatUserName = (value?: any) => {
+    if (!value) return 'Sin datos';
+    const parts = [
+      value.nombre_completo,
+      value.last_name,
+      value.mother_last_name,
+    ].filter(Boolean);
+    const fullName = parts.join(' ').trim();
+    return fullName || value.email || value.correo || 'Sin datos';
+  };
+
   const fetchOrders = useCallback(
     async (options?: { silent?: boolean }) => {
       try {
@@ -989,12 +1000,14 @@ const OrdersScreen = () => {
 
           <View style={styles.orderMetaRow}>
             <Text style={styles.metaLabel}>Solicitante:</Text>
-            <Text style={styles.metaValue}>{item.solicitante?.nombre_completo ?? 'Sin datos'}</Text>
+            <Text style={styles.metaValue}>{formatUserName(item.solicitante)}</Text>
           </View>
 
           <View style={styles.orderMetaRow}>
             <Text style={styles.metaLabel}>Ejecutor asignado:</Text>
-            <Text style={styles.metaValue}>{item.ejecutor?.nombre_completo ?? 'Sin asignar'}</Text>
+            <Text style={styles.metaValue}>
+              {item.ejecutor ? formatUserName(item.ejecutor) : 'Sin asignar'}
+            </Text>
           </View>
 
           <View style={styles.orderMetaRow}>

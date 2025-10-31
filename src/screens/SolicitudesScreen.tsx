@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
-import { FlatList, View, StyleSheet, RefreshControl } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlatList, View, StyleSheet, RefreshControl, Alert } from 'react-native';
 import {
   Searchbar,
   Card,
@@ -16,6 +16,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { solicitudService } from '../services/solicitud.service';
 import { SolicitudSKU, EstadoSolicitud } from '../types/solicitud.types';
+import dayjs from 'dayjs';
 
 const SolicitudesScreen = ({ navigation }: any) => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -47,9 +48,14 @@ const SolicitudesScreen = ({ navigation }: any) => {
         if (searchQuery) {
           const searchLower = searchQuery.toLowerCase();
           data = data.filter(
-            (s) =>
-              s.productos_pos?.nombre?.toLowerCase().includes(searchLower) ||
-              s.productos_pos?.sku?.toLowerCase().includes(searchLower)
+            (s) => {
+              const campos = [
+                s.descripcion ?? '',
+                s.id ?? '',
+                s.responsable?.nombre ?? '',
+              ];
+              return campos.some((campo) => campo.toLowerCase().includes(searchLower));
+            }
           );
         }
       }
@@ -82,6 +88,8 @@ const SolicitudesScreen = ({ navigation }: any) => {
         return '#EF5350';
       case 'completada':
         return '#42A5F5';
+      case 'cancelada':
+        return '#9E9E9E';
       default:
         return '#9E9E9E';
     }
@@ -97,13 +105,36 @@ const SolicitudesScreen = ({ navigation }: any) => {
         return 'Rechazada';
       case 'completada':
         return 'Completada';
+      case 'cancelada':
+        return 'Cancelada';
       default:
         return estado;
     }
   };
 
-  const getTipoIcon = (tipo: string) => {
-    return tipo === 'salida' ? 'arrow-up-bold' : 'swap-horizontal';
+  const handleCreateSolicitud = () => {
+    Alert.alert(
+      'Gestión desde ERP',
+      'La creación de solicitudes se realiza directamente en el ERP.'
+    );
+  };
+
+  const formatUserName = (usuario?: { nombre: string; correo?: string | null }) => {
+    if (!usuario) return 'Sin asignar';
+    return usuario.nombre || usuario.correo || 'Sin asignar';
+  };
+
+  const formatCurrency = (valor: number | null | undefined, divisa?: string | null) => {
+    if (valor == null) return 'N/A';
+    try {
+      return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: divisa || 'MXN',
+        minimumFractionDigits: 2,
+      }).format(valor);
+    } catch {
+      return `${valor} ${divisa || ''}`.trim();
+    }
   };
 
   const renderSolicitud = ({ item }: { item: SolicitudSKU }) => (
@@ -116,26 +147,27 @@ const SolicitudesScreen = ({ navigation }: any) => {
           <View style={styles.productInfo}>
             <View style={styles.titleRow}>
               <MaterialCommunityIcons
-                name={getTipoIcon(item.tipo)}
+                name="clipboard-text"
                 size={20}
                 color="#6200ee"
                 style={styles.tipoIcon}
               />
               <Text variant="titleMedium" style={styles.productName}>
-                {item.productos_pos?.nombre || 'Producto sin nombre'}
+                {item.descripcion || `Solicitud ${item.id}`}
               </Text>
             </View>
             <Text variant="bodySmall" style={styles.productDescription}>
-              SKU: {item.productos_pos?.sku || 'N/A'}
+              Folio: {item.id}
             </Text>
             <Text variant="bodySmall" style={styles.productDescription}>
-              Origen: {item.ubicacion_origen?.nombre || 'N/A'}
+              Fecha: {dayjs(item.fecha).format('DD/MM/YYYY')}
             </Text>
-            {item.tipo === 'transferencia' && (
-              <Text variant="bodySmall" style={styles.productDescription}>
-                Destino: {item.ubicacion_destino?.nombre || 'N/A'}
-              </Text>
-            )}
+            <Text variant="bodySmall" style={styles.productDescription}>
+              Total: {formatCurrency(item.total, item.divisa)}
+            </Text>
+            <Text variant="bodySmall" style={styles.productDescription}>
+              Detalles: {item.detalles.length}
+            </Text>
           </View>
           <View style={styles.rightInfo}>
             <Badge
@@ -143,20 +175,29 @@ const SolicitudesScreen = ({ navigation }: any) => {
             >
               {getEstadoLabel(item.estado)}
             </Badge>
-            <Badge style={styles.cantidadBadge}>{item.cantidad}</Badge>
           </View>
         </View>
 
         <View style={styles.cardFooter}>
           <Chip style={styles.chip} icon="account">
-            <Text variant="labelSmall">{item.solicitante?.nombre_completo}</Text>
+            <Text variant="labelSmall">{formatUserName(item.responsable)}</Text>
           </Chip>
-          <Chip style={styles.chip} icon="calendar">
-            <Text variant="labelSmall">
-              {new Date(item.created_at).toLocaleDateString()}
-            </Text>
+          <Chip style={styles.chip} icon="account-check">
+            <Text variant="labelSmall">{formatUserName(item.autorizado)}</Text>
           </Chip>
         </View>
+
+        {item.detalles.length > 0 && (
+          <View style={styles.motivoContainer}>
+            <Text variant="bodySmall" style={styles.motivoLabel}>
+              Primer detalle:
+            </Text>
+            <Text variant="bodySmall" style={styles.motivoText}>
+              Producto {item.detalles[0].id_producto || 'N/D'} · Cantidad{' '}
+              {item.detalles[0].cantidad ?? 'N/D'}
+            </Text>
+          </View>
+        )}
 
         {item.motivo && (
           <View style={styles.motivoContainer}>
@@ -218,12 +259,7 @@ const SolicitudesScreen = ({ navigation }: any) => {
         }
       />
 
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => navigation.navigate('CreateSolicitud')}
-        label="Nueva Solicitud"
-      />
+      <FAB icon="plus" style={styles.fab} onPress={handleCreateSolicitud} label="Nueva Solicitud" />
     </View>
   );
 };
@@ -279,13 +315,9 @@ const styles = StyleSheet.create({
   },
   rightInfo: {
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
   },
   estadoBadge: {
     marginBottom: 8,
-  },
-  cantidadBadge: {
-    backgroundColor: '#6200ee',
   },
   cardFooter: {
     flexDirection: 'row',

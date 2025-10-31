@@ -14,27 +14,35 @@ const ORDER_BASE_SELECT = `
   *,
   solicitante:usuarios!ordenesmtto_solicitante_id_fkey(
     id,
-    nombre_completo,
-    email,
-    rol
+    nombre_completo:nombres,
+    last_name,
+    mother_last_name,
+    email:correo,
+    rol:tipouser
   ),
   ejecutor:usuarios!ordenesmtto_ejecutor_id_fkey(
     id,
-    nombre_completo,
-    email,
-    rol
+    nombre_completo:nombres,
+    last_name,
+    mother_last_name,
+    email:correo,
+    rol:tipouser
   ),
   supervisor:usuarios!ordenesmtto_supervisor_id_fkey(
     id,
-    nombre_completo,
-    email,
-    rol
+    nombre_completo:nombres,
+    last_name,
+    mother_last_name,
+    email:correo,
+    rol:tipouser
   ),
   colaborador_area:usuarios!ordenesmtto_colaborador_area_id_fkey(
     id,
-    nombre_completo,
-    email,
-    rol
+    nombre_completo:nombres,
+    last_name,
+    mother_last_name,
+    email:correo,
+    rol:tipouser
   )
 `;
 

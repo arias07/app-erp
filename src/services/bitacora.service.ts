@@ -189,7 +189,12 @@ export const bitacoraService = {
     mediciones: BitacoraMedicionDetallePunto[],
     entry: BitacoraMedicionEntrada
   ): Promise<void> {
-    const variablesMap = new Map(concepto.variables.map((variable) => [variable.id, variable]));
+    const variablesMap = new Map(
+      concepto.variables.map((variable) => [
+        variable.id ?? variable.slug ?? variable.nombre,
+        variable,
+      ])
+    );
 
     const alerts: BitacoraSerieDato[] = [];
 

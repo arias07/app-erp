@@ -19,7 +19,6 @@ import { RootState } from '../store/store';
 import { solicitudService } from '../services/solicitud.service';
 import { inventoryService } from '../services/inventory.service';
 import { supabase } from '../services/supabase';
-import { TipoSolicitud } from '../types/solicitud.types';
 import { ExistenciaPos } from '../types/inventory.types';
 
 interface Ubicacion {
@@ -30,7 +29,7 @@ interface Ubicacion {
 const CreateSolicitudScreen = ({ navigation }: any) => {
   const { user } = useSelector((state: RootState) => state.auth);
   
-  const [tipo, setTipo] = useState<TipoSolicitud>('salida');
+  const [tipo, setTipo] = useState<'salida' | 'transferencia'>('salida');
   const [cantidad, setCantidad] = useState('');
   const [motivo, setMotivo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -82,51 +81,10 @@ const CreateSolicitudScreen = ({ navigation }: any) => {
   };
 
   const handleSubmit = async () => {
-    if (!productoSeleccionado) {
-      Alert.alert('Error', 'Debe seleccionar un producto');
-      return;
-    }
-
-    if (!ubicacionOrigen) {
-      Alert.alert('Error', 'Debe seleccionar un almacén de origen');
-      return;
-    }
-
-    if (tipo === 'transferencia' && !ubicacionDestino) {
-      Alert.alert('Error', 'Debe seleccionar un almacén de destino');
-      return;
-    }
-
-    if (!cantidad || parseInt(cantidad) <= 0) {
-      Alert.alert('Error', 'La cantidad debe ser mayor a 0');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      await solicitudService.create(
-        {
-          id_producto: productoSeleccionado.id_producto,
-          id_ubicacion_origen: ubicacionOrigen.id,
-          id_ubicacion_destino: tipo === 'transferencia' ? ubicacionDestino?.id : undefined,
-          cantidad: parseInt(cantidad),
-          tipo,
-          motivo: motivo || undefined,
-        },
-        user!.id
-      );
-
-      Alert.alert(
-        'Éxito',
-        'Solicitud creada correctamente. Espera la aprobación del supervisor.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al crear la solicitud');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      'Función no disponible',
+      'La creación de solicitudes se gestiona directamente desde el ERP.'
+    );
   };
 
   return (
@@ -142,7 +100,7 @@ const CreateSolicitudScreen = ({ navigation }: any) => {
         </Text>
         <SegmentedButtons
           value={tipo}
-          onValueChange={(value) => setTipo(value as TipoSolicitud)}
+          onValueChange={(value) => setTipo(value as 'salida' | 'transferencia')}
           buttons={[
             { value: 'salida', label: 'Salida' },
             { value: 'transferencia', label: 'Transferencia' },

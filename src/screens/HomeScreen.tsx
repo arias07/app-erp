@@ -25,6 +25,16 @@ const HomeScreen = () => {
 
   const chartWidth = useMemo(() => Dimensions.get('window').width - 64, []);
 
+  const activeConceptId = selectedConcept ? selectedConcept.id ?? selectedConcept.codigo : null;
+
+  const resolvePointId = (punto: any): string | null => {
+    return punto?.id ?? punto?.slug ?? punto?.nombre ?? null;
+  };
+
+  const resolveVariableId = (variable: any): string | null => {
+    return variable?.id ?? variable?.slug ?? variable?.nombre ?? null;
+  };
+
   const getRoleGreeting = (rol: string) => {
     const greetings: Record<string, string> = {
       superadmin: '¡Bienvenido, Super Administrador!',
@@ -44,8 +54,8 @@ const HomeScreen = () => {
       if (data.length > 0) {
         const conceptoDefault = data[0];
         setSelectedConcept(conceptoDefault);
-        setSelectedPuntoId(conceptoDefault.puntos_medicion[0]?.id ?? null);
-        setSelectedVariableId(conceptoDefault.variables[0]?.id ?? null);
+        setSelectedPuntoId(resolvePointId(conceptoDefault.puntos_medicion[0]));
+        setSelectedVariableId(resolveVariableId(conceptoDefault.variables[0]));
       }
     } catch (err) {
       console.error('Error fetching bitacora conceptos', err);
@@ -59,9 +69,14 @@ const HomeScreen = () => {
     }
 
     try {
+      const conceptoRef = selectedConcept.id ?? selectedConcept.codigo;
+      if (!conceptoRef) {
+        setSerie([]);
+        return;
+      }
       setSerieLoading(true);
       const data = await bitacoraService.getSeriesByConceptAndPoint(
-        selectedConcept.id,
+        conceptoRef,
         selectedPuntoId,
         selectedVariableId,
         20
@@ -88,59 +103,78 @@ const HomeScreen = () => {
 
   const selectedVariable: BitacoraVariable | undefined = useMemo(() => {
     if (!selectedConcept || !selectedVariableId) return undefined;
-    return selectedConcept.variables.find((variable) => variable.id === selectedVariableId);
+    return selectedConcept.variables.find(
+      (variable) => resolveVariableId(variable) === selectedVariableId
+    );
   }, [selectedConcept, selectedVariableId]);
 
   const selectedPuntoNombre = useMemo(() => {
     if (!selectedConcept || !selectedPuntoId) return undefined;
-    return selectedConcept.puntos_medicion.find((punto) => punto.id === selectedPuntoId)?.nombre;
+    return selectedConcept.puntos_medicion.find(
+      (punto) => resolvePointId(punto) === selectedPuntoId
+    )?.nombre;
   }, [selectedConcept, selectedPuntoId]);
 
   const conceptButtons = useMemo(
     () =>
-      conceptos.map((concepto) => (
-        <Button
-          key={concepto.id}
-          mode={concepto.id === selectedConcept?.id ? 'contained-tonal' : 'text'}
-          onPress={() => {
-            setSelectedConcept(concepto);
-            setSelectedPuntoId(concepto.puntos_medicion[0]?.id ?? null);
-            setSelectedVariableId(concepto.variables[0]?.id ?? null);
-          }}
-          style={styles.selectorChip}
-        >
-          {concepto.nombre}
-        </Button>
-      )),
-    [conceptos, selectedConcept]
+      conceptos.map((concepto) => {
+        const conceptId = concepto.id ?? concepto.codigo;
+        return (
+          <Button
+            key={conceptId}
+            mode={conceptId === activeConceptId ? 'contained-tonal' : 'text'}
+            onPress={() => {
+              setSelectedConcept(concepto);
+              setSelectedPuntoId(resolvePointId(concepto.puntos_medicion[0]));
+              setSelectedVariableId(resolveVariableId(concepto.variables[0]));
+            }}
+            style={styles.selectorChip}
+          >
+            {concepto.nombre}
+          </Button>
+        );
+      }),
+    [conceptos, activeConceptId]
   );
 
   const puntoButtons = useMemo(() => {
     if (!selectedConcept) return null;
-    return selectedConcept.puntos_medicion.map((punto) => (
-      <Button
-        key={punto.id}
-        mode={punto.id === selectedPuntoId ? 'contained-tonal' : 'text'}
-        onPress={() => setSelectedPuntoId(punto.id)}
-        style={styles.selectorChip}
-      >
-        {punto.nombre}
-      </Button>
-    ));
+    return selectedConcept.puntos_medicion
+      .map((punto) => {
+        const puntoId = resolvePointId(punto);
+        if (!puntoId) return null;
+        return (
+          <Button
+            key={puntoId}
+            mode={puntoId === selectedPuntoId ? 'contained-tonal' : 'text'}
+            onPress={() => setSelectedPuntoId(puntoId)}
+            style={styles.selectorChip}
+          >
+            {punto.nombre}
+          </Button>
+        );
+      })
+      .filter(Boolean) as React.ReactElement[];
   }, [selectedConcept, selectedPuntoId]);
 
   const variableButtons = useMemo(() => {
     if (!selectedConcept) return null;
-    return selectedConcept.variables.map((variable) => (
-      <Button
-        key={variable.id}
-        mode={variable.id === selectedVariableId ? 'contained-tonal' : 'text'}
-        onPress={() => setSelectedVariableId(variable.id)}
-        style={styles.selectorChip}
-      >
-        {variable.nombre}
-      </Button>
-    ));
+    return selectedConcept.variables
+      .map((variable) => {
+        const variableId = resolveVariableId(variable);
+        if (!variableId) return null;
+        return (
+          <Button
+            key={variableId}
+            mode={variableId === selectedVariableId ? 'contained-tonal' : 'text'}
+            onPress={() => setSelectedVariableId(variableId)}
+            style={styles.selectorChip}
+          >
+            {variable.nombre}
+          </Button>
+        );
+      })
+      .filter(Boolean) as React.ReactElement[];
   }, [selectedConcept, selectedVariableId]);
 
   const chartData = useMemo(() => {
@@ -296,17 +330,23 @@ const HomeScreen = () => {
               </Text>
             ) : (
               <>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {conceptButtons}
-                </ScrollView>
+                {conceptButtons.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.selectorRow}>{conceptButtons}</View>
+                  </ScrollView>
+                )}
                 {selectedConcept ? (
                   <>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      {puntoButtons}
-                    </ScrollView>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      {variableButtons}
-                    </ScrollView>
+                    {puntoButtons && puntoButtons.length > 0 && (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.selectorRow}>{puntoButtons}</View>
+                      </ScrollView>
+                    )}
+                    {variableButtons && variableButtons.length > 0 && (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.selectorRow}>{variableButtons}</View>
+                      </ScrollView>
+                    )}
                   </>
                 ) : null}
 
@@ -448,6 +488,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#777',
     marginVertical: 8,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   selectorChip: {
     marginRight: 8,

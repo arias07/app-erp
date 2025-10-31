@@ -1,69 +1,56 @@
 
-export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada' | 'completada';
-export type TipoSolicitud = 'salida' | 'transferencia';
+export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada' | 'completada' | 'cancelada';
+
+export interface SolicitudUsuario {
+  id: string;
+  nombre: string;
+  correo?: string | null;
+  rol?: string | null;
+}
+
+export interface SolicitudDetalle {
+  id: string;
+  id_solped: string;
+  id_producto?: number | string | null;
+  id_proveedor?: number | string | null;
+  cantidad?: number | null;
+  costo_unitario?: number | null;
+}
+
+export interface SolicitudHistorial {
+  id: string;
+  id_solped: string;
+  fecha: string;
+  estatus: string;
+  comentario?: string | null;
+  usuario?: SolicitudUsuario;
+}
 
 export interface SolicitudSKU {
-  id: number;
-  id_solicitante: string;
-  id_producto: number;
-  id_ubicacion_origen: number;
-  id_ubicacion_destino?: number; // Solo para transferencias
-  cantidad: number;
-  tipo: TipoSolicitud;
+  id: string;
+  descripcion?: string | null;
+  fecha: string;
+  divisa?: string | null;
+  total?: number | null;
   estado: EstadoSolicitud;
-  motivo?: string;
-  observaciones?: string;
-  id_aprobador?: string;
-  fecha_aprobacion?: string;
-  created_at: string;
-  updated_at: string;
-  // Relaciones
-  solicitante?: {
-    id: string;
-    nombre_completo: string;
-    email: string;
-    rol: string;
-  };
-  aprobador?: {
-    id: string;
-    nombre_completo: string;
-    email: string;
-  };
-  productos_pos?: {
-    id: number;
-    nombre: string;
-    sku: string;
-    descripcion?: string;
-    unidad_medida?: string;
-  };
-  ubicacion_origen?: {
-    id: number;
-    nombre: string;
-  };
-  ubicacion_destino?: {
-    id: number;
-    nombre: string;
-  };
-}
-
-export interface CreateSolicitudInput {
-  id_producto: number;
-  id_ubicacion_origen: number;
-  id_ubicacion_destino?: number;
-  cantidad: number;
-  tipo: TipoSolicitud;
-  motivo?: string;
-}
-
-export interface UpdateSolicitudInput {
-  estado?: EstadoSolicitud;
-  observaciones?: string;
-  id_aprobador?: string;
+  motivo?: string | null;
+  observaciones?: string | null;
+  responsable?: SolicitudUsuario;
+  autorizado?: SolicitudUsuario;
+  detalles: SolicitudDetalle[];
+  historial: SolicitudHistorial[];
 }
 
 export interface SolicitudFilters {
   estado?: EstadoSolicitud;
-  tipo?: TipoSolicitud;
-  id_solicitante?: string;
+  responsableId?: string;
   searchTerm?: string;
+}
+
+export interface CreateSolicitudInput {
+  // Placeholder – las solicitudes se gestionan en el ERP
+}
+
+export interface UpdateSolicitudInput {
+  // Placeholder – las solicitudes se gestionan en el ERP
 }
