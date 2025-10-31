@@ -10,6 +10,8 @@ import InventoryScreen from '../screens/InventoryScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import UsersScreen from '../screens/UsersScreen';
+import BitacorasScreen from '../screens/BitacorasScreen';
+import ManualesScreen from '../screens/ManualesScreen';
 
 import { CustomDrawerContent } from './CustomDrawerContent';
 
@@ -34,6 +36,8 @@ export const DrawerNavigator = () => {
 
   const canAccessInventory = inventoryRoles.has(role);
   const canAccessOrders = inventoryRoles.has(role);
+  const canAccessBitacoras = inventoryRoles.has(role);
+  const canAccessManuales = inventoryRoles.has(role);
   const canAccessReports = managementRoles.has(role);
   const canAccessUsers = adminOnlyRoles.has(role);
 
@@ -100,6 +104,19 @@ export const DrawerNavigator = () => {
         />
       )}
 
+      {canAccessBitacoras && (
+        <Drawer.Screen
+          name="Bitacoras"
+          component={BitacorasScreen}
+          options={{
+            title: 'Bitacoras',
+            drawerIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="notebook" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
       {canAccessReports && (
         <Drawer.Screen
           name="Reports"
@@ -121,6 +138,19 @@ export const DrawerNavigator = () => {
             title: 'Usuarios',
             drawerIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="account-group" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {canAccessManuales && (
+        <Drawer.Screen
+          name="Manuales"
+          component={ManualesScreen}
+          options={{
+            title: 'Manuales',
+            drawerIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="book-open-page-variant" size={size} color={color} />
             ),
           }}
         />

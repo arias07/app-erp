@@ -16,6 +16,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import OrdersScreen from '../screens/OrdersScreen';
+import BitacorasScreen from '../screens/BitacorasScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SolicitudesScreen from '../screens/SolicitudesScreen';
 import CreateSolicitudScreen from '../screens/CreateSolicitudScreen';
@@ -39,6 +40,8 @@ function MainTabs() {
             iconName = focused ? 'package-variant' : 'package-variant-closed';
           } else if (route.name === 'Orders') {
             iconName = focused ? 'clipboard-list' : 'clipboard-list-outline';
+          } else if (route.name === 'Bitacoras') {
+            iconName = focused ? 'notebook' : 'notebook-outline';
           } else if (route.name === 'Solicitudes') {
             iconName = focused ? 'file-document' : 'file-document-outline';
           } else if (route.name === 'Profile') {
@@ -62,6 +65,11 @@ function MainTabs() {
         name="Orders" 
         component={OrdersScreen}
         options={{ title: 'Ordenes' }}
+      />
+      <Tab.Screen
+        name="Bitacoras"
+        component={BitacorasScreen}
+        options={{ title: 'Bitacoras' }}
       />
       <Tab.Screen 
         name="Solicitudes" 

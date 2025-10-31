@@ -5,6 +5,7 @@ export const ROLES = {
   EMPLEADO: 'empleado',
   PROVEEDOR: 'proveedor',
   OWN: 'own',
+  EJECUTOR: 'ejecutor',
 } as const;
 
 export const PERMISSIONS = {
@@ -17,14 +18,19 @@ export const PERMISSIONS = {
   EDIT_INVENTORY: ['superadmin', 'administrador', 'supervisor'],
 
   // Órdenes de Mantenimiento
-  CREATE_ORDER: ['empleado', 'supervisor', 'administrador', 'superadmin'],
+  CREATE_ORDER: ['empleado', 'supervisor', 'administrador', 'superadmin', 'ejecutor'],
   VIEW_ALL_ORDERS: ['superadmin', 'administrador', 'supervisor'],
-  ASSIGN_SELF: ['empleado'],
+  ASSIGN_SELF: ['empleado', 'ejecutor'],
   APPROVE_ORDER: ['supervisor', 'administrador', 'superadmin'],
-  UPLOAD_EVIDENCE: ['empleado'],
-  SIGN_COMPLETION: ['empleado', 'supervisor'],
+  UPLOAD_EVIDENCE: ['empleado', 'ejecutor'],
+  SIGN_COMPLETION: ['empleado', 'supervisor', 'ejecutor'],
   RATE_EXECUTOR: ['supervisor', 'administrador', 'superadmin'],
   RATE_OPERATION: ['empleado'],
+
+  // Bitacoras
+  CREATE_BITACORA: ['superadmin', 'administrador', 'supervisor', 'empleado', 'operacion', 'ejecutor'],
+  VIEW_BITACORA: ['superadmin', 'administrador', 'supervisor', 'empleado', 'operacion', 'ejecutor', 'own'],
+  VIEW_MANUALES: ['superadmin', 'administrador', 'supervisor', 'empleado', 'operacion', 'ejecutor', 'own'],
 
   // Órdenes de Compra
   VIEW_PURCHASE_ORDERS: ['superadmin', 'administrador', 'supervisor', 'own'],
