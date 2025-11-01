@@ -6,10 +6,10 @@ import {
   Card,
   Text,
   Chip,
-  FAB,
   Badge,
   ActivityIndicator,
   SegmentedButtons,
+  Button,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -21,13 +21,20 @@ import dayjs from 'dayjs';
 const SolicitudesScreen = ({ navigation }: any) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const supervisorRoles = new Set(['superadmin', 'administrador', 'supervisor']);
+  const authorizerRoles = useMemo(
+    () => new Set(['superadmin', 'administrador', 'supervisor', 'directivo']),
+    []
+  );
   const isSupervisor = supervisorRoles.has(user?.rol || '');
+  const canAuthorize = authorizerRoles.has(user?.rol || '');
 
   const [solicitudes, setSolicitudes] = useState<SolicitudSKU[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<EstadoSolicitud | 'todas'>('todas');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   const loadSolicitudes = async () => {
     try {
@@ -40,23 +47,25 @@ const SolicitudesScreen = ({ navigation }: any) => {
           searchTerm: searchQuery || undefined,
         });
       } else {
-        data = await solicitudService.getMisSolicitudes(user!.id);
-        
-        if (filtroEstado !== 'todas') {
-          data = data.filter((s) => s.estado === filtroEstado);
-        }
-        if (searchQuery) {
-          const searchLower = searchQuery.toLowerCase();
-          data = data.filter(
-            (s) => {
+        if (!user) {
+          data = [];
+        } else {
+          data = await solicitudService.getMisSolicitudes(user.id);
+
+          if (filtroEstado !== 'todas') {
+            data = data.filter((s) => s.estado === filtroEstado);
+          }
+          if (searchQuery) {
+            const searchLower = searchQuery.toLowerCase();
+            data = data.filter((s) => {
               const campos = [
                 s.descripcion ?? '',
                 s.id ?? '',
                 s.responsable?.nombre ?? '',
               ];
               return campos.some((campo) => campo.toLowerCase().includes(searchLower));
-            }
-          );
+            });
+          }
         }
       }
 
@@ -70,8 +79,21 @@ const SolicitudesScreen = ({ navigation }: any) => {
   };
 
   useEffect(() => {
-    loadSolicitudes();
-  }, [filtroEstado]);
+    const init = async () => {
+      await loadSolicitudes();
+      setInitialized(true);
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    const handler = setTimeout(() => {
+      loadSolicitudes();
+    }, 350);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery, filtroEstado, isSupervisor, initialized]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -112,11 +134,25 @@ const SolicitudesScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleCreateSolicitud = () => {
-    Alert.alert(
-      'Gestión desde ERP',
-      'La creación de solicitudes se realiza directamente en el ERP.'
-    );
+  const handleChangeEstado = async (
+    solicitudId: string,
+    nuevoEstado: 'AUTORIZADA' | 'RECHAZADA'
+  ) => {
+    if (!user) {
+      Alert.alert('Sesión requerida', 'Debes iniciar sesión para actualizar solicitudes.');
+      return;
+    }
+    try {
+      setUpdatingId(solicitudId);
+      await solicitudService.updateEstado(solicitudId, nuevoEstado, user.id);
+      await loadSolicitudes();
+      Alert.alert('Solicitud actualizada', 'El estatus se modificó correctamente.');
+    } catch (error: any) {
+      console.error('Error actualizando solicitud', error);
+      Alert.alert('Error', error.message ?? 'No se pudo actualizar la solicitud');
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const formatUserName = (usuario?: { nombre: string; correo?: string | null }) => {
@@ -137,13 +173,15 @@ const SolicitudesScreen = ({ navigation }: any) => {
     }
   };
 
-  const renderSolicitud = ({ item }: { item: SolicitudSKU }) => (
-    <Card
-      style={styles.card}
-      onPress={() => navigation.navigate('DetalleSolicitud', { solicitudId: item.id })}
-    >
-      <Card.Content>
-        <View style={styles.cardHeader}>
+  const renderSolicitud = ({ item }: { item: SolicitudSKU }) => {
+    const puedeAutorizar = canAuthorize && item.estado === 'pendiente';
+    return (
+      <Card
+        style={styles.card}
+        onPress={() => navigation.navigate('DetalleSolicitud', { solicitudId: item.id })}
+      >
+        <Card.Content>
+          <View style={styles.cardHeader}>
           <View style={styles.productInfo}>
             <View style={styles.titleRow}>
               <MaterialCommunityIcons
@@ -209,9 +247,31 @@ const SolicitudesScreen = ({ navigation }: any) => {
             </Text>
           </View>
         )}
-      </Card.Content>
-    </Card>
-  );
+        </Card.Content>
+        {puedeAutorizar && (
+          <Card.Actions style={styles.cardActions}>
+            <Button
+              mode="contained-tonal"
+              onPress={() => handleChangeEstado(item.id, 'AUTORIZADA')}
+              loading={updatingId === item.id}
+              disabled={updatingId === item.id}
+            >
+              Autorizar
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={() => handleChangeEstado(item.id, 'RECHAZADA')}
+              loading={updatingId === item.id}
+              disabled={updatingId === item.id}
+              textColor="#ef5350"
+            >
+              Rechazar
+            </Button>
+          </Card.Actions>
+        )}
+      </Card>
+    );
+  };
 
   if (loading) {
     return (
@@ -224,7 +284,7 @@ const SolicitudesScreen = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
       <Searchbar
-        placeholder="Buscar por producto o SKU"
+        placeholder="Buscar en compras..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         style={styles.searchBar}
@@ -258,8 +318,6 @@ const SolicitudesScreen = ({ navigation }: any) => {
           </View>
         }
       />
-
-      <FAB icon="plus" style={styles.fab} onPress={handleCreateSolicitud} label="Nueva Solicitud" />
     </View>
   );
 };
@@ -349,11 +407,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     color: '#999',
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  cardActions: {
+    justifyContent: 'flex-end',
+    paddingRight: 8,
   },
 });
 

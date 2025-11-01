@@ -75,7 +75,8 @@ function MainTabs() {
         name="Solicitudes" 
         component={SolicitudesScreen}
         options={{ 
-          title: 'Refacciones',
+          title: 'Compras',
+          tabBarLabel: 'Compras',
         }}
       />
             <Tab.Screen 

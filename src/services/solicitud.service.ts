@@ -22,18 +22,59 @@ const isMissingTableError = (error: unknown): boolean => {
   );
 };
 
-const ESTADO_NORMALIZADO: Record<string, EstadoSolicitud> = {
-  POR_AUTORIZAR: 'pendiente',
-  EN_REVISION: 'pendiente',
-  AUTORIZADA: 'aprobada',
-  APROBADA: 'aprobada',
-  RECHAZADA: 'rechazada',
-  COMPLETADA: 'completada',
-  CANCELADA: 'cancelada',
+// Cache para valores del enum detectados
+let enumValuesCache: string[] | null = null;
+
+/**
+ * Detecta automáticamente los valores del enum consultando la BD
+ */
+const detectEnumValues = async (): Promise<string[]> => {
+  if (enumValuesCache) {
+    return enumValuesCache;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_SOLPED)
+      .select('estatus_actual')
+      .limit(100);
+
+    if (error || !data) {
+      console.warn('No se pudieron detectar valores del enum, usando valores por defecto');
+      return ['POR AUTORIZAR', 'AUTORIZADA', 'RECHAZADA', 'COMPLETADA', 'CANCELADA'];
+    }
+
+    const valores = new Set<string>();
+    data.forEach((row: any) => {
+      if (row.estatus_actual) {
+        valores.add(row.estatus_actual);
+      }
+    });
+
+    enumValuesCache = Array.from(valores);
+    console.log('✅ Valores del enum detectados:', enumValuesCache);
+    return enumValuesCache;
+  } catch (error) {
+    console.error('Error detectando valores del enum:', error);
+    return ['POR AUTORIZAR', 'AUTORIZADA', 'RECHAZADA', 'COMPLETADA', 'CANCELADA'];
+  }
 };
 
+// Mapeo de normalización - ajusta estos valores según tu BD
+const ESTADO_NORMALIZADO: Record<string, EstadoSolicitud> = {
+  'POR AUTORIZAR': 'pendiente',
+  'PENDIENTE': 'pendiente',
+  'EN PROCESO': 'pendiente',
+  'AUTORIZADA': 'aprobada',
+  'APROBADA': 'aprobada',
+  'RECHAZADA': 'rechazada',
+  'COMPLETADA': 'completada',
+  'CANCELADA': 'cancelada',
+};
+
+// Mapeo invertido - ajusta según los valores reales de tu BD
 const ESTADO_INVERTIDO: Record<EstadoSolicitud, string[]> = {
-  pendiente: ['POR_AUTORIZAR', 'EN_REVISION'],
+  pendiente: ['POR AUTORIZAR', 'PENDIENTE', 'EN PROCESO'],
   aprobada: ['AUTORIZADA', 'APROBADA'],
   rechazada: ['RECHAZADA'],
   completada: ['COMPLETADA'],
@@ -42,7 +83,7 @@ const ESTADO_INVERTIDO: Record<EstadoSolicitud, string[]> = {
 
 const normalizeEstado = (estatus?: string | null): EstadoSolicitud => {
   if (!estatus) return 'pendiente';
-  const normalized = (estatus || '').toUpperCase();
+  const normalized = estatus.toUpperCase().trim();
   return ESTADO_NORMALIZADO[normalized] ?? 'pendiente';
 };
 
@@ -75,7 +116,10 @@ const fetchUsuarios = async (ids: Set<string>): Promise<Record<string, Solicitud
 
   const resultado: Record<string, SolicitudUsuario> = {};
   (data ?? []).forEach((row: any) => {
-    resultado[String(row.id)] = buildUsuario(row)!;
+    const usuario = buildUsuario(row);
+    if (usuario) {
+      resultado[String(row.id)] = usuario;
+    }
   });
   return resultado;
 };
@@ -263,6 +307,9 @@ const fetchSolicitudesBase = async (
 export const solicitudService = {
   async getAll(filters?: SolicitudFilters): Promise<SolicitudSKU[]> {
     try {
+      // Detectar valores del enum en la primera llamada
+      await detectEnumValues();
+
       const baseRows = await fetchSolicitudesBase(filters);
       if (baseRows.length === 0) {
         return [];
@@ -295,24 +342,35 @@ export const solicitudService = {
 
   async getById(id: number | string): Promise<SolicitudSKU | null> {
     try {
-      const rows = await fetchSolicitudesBase({ searchTerm: String(id) });
-      const match = rows.find((row) => String(row.id) === String(id));
+      const { data, error } = await supabase
+        .from(TABLE_SOLPED)
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      if (!match) {
+      if (error) {
+        if (isMissingTableError(error)) {
+          console.warn('Tabla solped no encontrada en getById.');
+          return null;
+        }
+        throw error;
+      }
+
+      if (!data) {
         return null;
       }
 
-      const solpedId = String(match.id);
+      const solpedId = String(data.id);
       const [detalleRows, historialRows] = await Promise.all([
         fetchDetalles([solpedId]),
         fetchHistorial([solpedId]),
       ]);
-      const usuarios = await buildUsuarioLookup([match], historialRows);
+      const usuarios = await buildUsuarioLookup([data], historialRows);
 
       const detallesMap = buildDetallesMap(detalleRows);
       const historialMap = buildHistorialMap(historialRows, usuarios);
 
-      return mapSolicitud(match, usuarios, detallesMap, historialMap);
+      return mapSolicitud(data, usuarios, detallesMap, historialMap);
     } catch (error) {
       if (isMissingTableError(error)) {
         console.warn('Tabla solped no encontrada en getById.');
@@ -341,5 +399,26 @@ export const solicitudService = {
 
   async completar(): Promise<SolicitudSKU> {
     throw new Error('La ejecución de solicitudes se realiza en el ERP.');
+  },
+
+  async updateEstado(
+    id: number | string,
+    estado: 'AUTORIZADA' | 'RECHAZADA',
+    usuarioId?: string
+  ): Promise<void> {
+    const payload: Record<string, any> = {
+      estatus_actual: estado,
+    };
+
+    if (estado === 'AUTORIZADA') {
+      payload.id_autorizado = usuarioId ?? null;
+    } else {
+      payload.id_autorizado = null;
+    }
+
+    const { error } = await supabase.from(TABLE_SOLPED).update(payload).eq('id', id);
+    if (error) {
+      throw error;
+    }
   },
 };

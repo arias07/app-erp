@@ -1,13 +1,16 @@
-import React, { useEffect } from 'react';
-import { Provider } from 'react-redux';
-import { PaperProvider } from 'react-native-paper';
-import { store } from './src/store/store';
 import { AppNavigator } from './src/navigation/AppNavigator';
-import { suppressPointerEventsWarning } from './src/utils/suppressWarnings';
+import { store } from './src/store/store';
+import { PaperProvider } from 'react-native-paper';
+import { Provider } from 'react-redux';
+import { useEffect } from 'react';
+import { checkEnumValues } from './src/utils/checkEnums';
 
 export default function App() {
   useEffect(() => {
-    suppressPointerEventsWarning();
+    // Solo en desarrollo - verificar valores del enum
+    if (__DEV__) {
+      checkEnumValues();
+    }
   }, []);
 
   return (

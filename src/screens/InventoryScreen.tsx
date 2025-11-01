@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { FlatList, View, StyleSheet, RefreshControl } from 'react-native';
-import { Searchbar, Card, Text, Chip, FAB, Badge, ActivityIndicator } from 'react-native-paper';
+import { Searchbar, Card, Text, Chip, Badge, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { inventoryService } from '../services/inventory.service';
 import { ExistenciaPos } from '../types/inventory.types';
@@ -16,6 +16,7 @@ const InventoryScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   const loadExistencias = async () => {
     try {
@@ -33,8 +34,21 @@ const InventoryScreen = () => {
   };
 
   useEffect(() => {
-    loadExistencias();
+    const init = async () => {
+      await loadExistencias();
+      setInitialized(true);
+    };
+    init();
   }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    const handler = setTimeout(() => {
+      loadExistencias();
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery, initialized]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -100,13 +114,6 @@ const InventoryScreen = () => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
-
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => console.log('Agregar producto')}
-        label="Agregar"
-      />
     </View>
   );
 };
@@ -170,13 +177,6 @@ const styles = StyleSheet.create({
   },
   chipText: {
     marginLeft: 4,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#6200ee',
   },
 });
 

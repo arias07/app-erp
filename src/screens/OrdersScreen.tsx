@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Dialog,
   Searchbar,
+  Checkbox,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
@@ -40,6 +41,7 @@ import CalendarPickerModal from '../components/common/CalendarPickerModal';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { storageService } from '../services/storage.service';
+import { supabase } from '../services/supabase';
 
 type StatusFilter = OrderStatus | 'todos';
 type TypeFilter = OrderType | 'todos';
@@ -336,8 +338,6 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
             buttons={[
               { value: 'correctiva', label: 'Correctiva' },
               { value: 'mejora', label: 'Mejora' },
-              { value: 'predictiva', label: 'Predictiva' },
-              { value: 'autonomo', label: 'Autonomo' },
             ]}
           />
 
@@ -578,8 +578,14 @@ const OrdersScreen = () => {
   const [detailOrder, setDetailOrder] = useState<OrdenMtto | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
 
+  const [treatmentOrder, setTreatmentOrder] = useState<OrdenMtto | null>(null);
+  const [treatmentNotes, setTreatmentNotes] = useState('');
+  const [treatmentLoading, setTreatmentLoading] = useState(false);
+  const [treatmentCompleteOrder, setTreatmentCompleteOrder] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('todos');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const canCreateOrder = Boolean(user?.rol && hasPermission(user.rol, 'CREATE_ORDER'));
   const canAssignSelf = Boolean(user?.rol && hasPermission(user.rol, 'ASSIGN_SELF'));
@@ -655,9 +661,23 @@ const OrdersScreen = () => {
     return orders.filter((order) => {
       const statusMatch = statusFilter === 'todos' || order.estado === statusFilter;
       const typeMatch = typeFilter === 'todos' || order.tipo === typeFilter;
-      return statusMatch && typeMatch;
+
+      // Text search filter
+      let searchMatch = true;
+      if (searchQuery.trim()) {
+        const searchLower = searchQuery.toLowerCase();
+        searchMatch =
+          order.titulo?.toLowerCase().includes(searchLower) ||
+          order.descripcion?.toLowerCase().includes(searchLower) ||
+          order.id?.toLowerCase().includes(searchLower) ||
+          order.metadata?.ubicacion?.toLowerCase().includes(searchLower) ||
+          order.metadata?.equipo?.toLowerCase().includes(searchLower) ||
+          false;
+      }
+
+      return statusMatch && typeMatch && searchMatch;
     });
-  }, [orders, statusFilter, typeFilter]);
+  }, [orders, statusFilter, typeFilter, searchQuery]);
 
   const handleCreateOrder = useCallback(
     async (form: OrderFormState) => {
@@ -740,6 +760,22 @@ const OrdersScreen = () => {
   };
 
   const openOrderDetail = (order: OrdenMtto) => {
+    // Convertir ambos a string para comparación segura
+    const ejecutorIdStr = String(order.ejecutor_id || '');
+    const userIdStr = String(user?.id || '');
+    const esEjecutorAsignado = ejecutorIdStr === userIdStr && ejecutorIdStr !== '';
+
+    console.log('[OrderDetail] Abriendo detalle de orden:', {
+      id: order.id,
+      folio: order.folio,
+      estado: order.estado,
+      ejecutor_id: order.ejecutor_id,
+      ejecutor_id_str: ejecutorIdStr,
+      user_id: user?.id,
+      user_id_str: userIdStr,
+      es_ejecutor_asignado: esEjecutorAsignado,
+      puede_tratar: order.estado === 'en_proceso' && esEjecutorAsignado,
+    });
     setDetailOrder(order);
     setDetailVisible(true);
   };
@@ -763,10 +799,65 @@ const OrdersScreen = () => {
     }
   }, [orders, detailVisible, detailOrder]);
 
-  const handleOpenCompletionFromDetail = () => {
+  const handleOpenTreatmentFromDetail = () => {
     if (!detailOrder) return;
-    openCompletionDialog(detailOrder);
+    setTreatmentOrder(detailOrder);
+    setTreatmentNotes(detailOrder.trabajos_realizados || '');
+    setTreatmentCompleteOrder(false);
     closeOrderDetail();
+  };
+
+  const closeTreatmentDialog = () => {
+    setTreatmentOrder(null);
+    setTreatmentNotes('');
+    setTreatmentCompleteOrder(false);
+  };
+
+  const handleSubmitTreatment = async () => {
+    if (!user || !treatmentOrder) {
+      return;
+    }
+
+    if (!treatmentNotes.trim()) {
+      Alert.alert('Notas requeridas', 'Describe el avance o trabajo realizado.');
+      return;
+    }
+
+    try {
+      setTreatmentLoading(true);
+
+      const updateData: any = {
+        trabajos_realizados: treatmentNotes.trim(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Si se marca como completada, actualizar el estado
+      if (treatmentCompleteOrder) {
+        updateData.estado = 'completado';
+        updateData.fecha_finalizacion = new Date().toISOString();
+      }
+
+      // Actualizar la orden con las notas de tratamiento
+      const { error } = await supabase
+        .from('ordenesmtto')
+        .update(updateData)
+        .eq('id', treatmentOrder.id);
+
+      if (error) throw error;
+
+      const mensaje = treatmentCompleteOrder
+        ? 'La orden ha sido completada exitosamente.'
+        : 'Se ha registrado el avance del tratamiento.';
+
+      Alert.alert('Éxito', mensaje);
+      closeTreatmentDialog();
+      await fetchOrders();
+    } catch (error: any) {
+      console.error('Error actualizando tratamiento:', error);
+      Alert.alert('Error', error.message ?? 'No se pudo registrar el tratamiento');
+    } finally {
+      setTreatmentLoading(false);
+    }
   };
 
   const handleRemoveEvidence = (index: number) => {
@@ -980,7 +1071,8 @@ const OrdersScreen = () => {
     const isAssignedToCurrentUser = Boolean(user && item.ejecutor_id === user.id);
     const isPending = item.estado === 'pendiente';
     const canTake = canAssignSelf && isPending && !item.ejecutor_id;
-    const canComplete = isAssignedToCurrentUser && item.estado === 'en_proceso';
+    const canComplete =
+      isAssignedToCurrentUser && item.estado === 'en_proceso' && user?.rol === 'ejecutor';
     const approverId = getApprovalOwnerId(item);
     const canApprove =
       Boolean(user && approverId && user.id === approverId) &&
@@ -1169,6 +1261,14 @@ const OrdersScreen = () => {
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Filtros
         </Text>
+
+        <Searchbar
+          placeholder="Buscar por título, descripción, ubicación..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchBar}
+        />
+
         <Text variant="labelLarge" style={styles.filterLabel}>
           Estado
         </Text>
@@ -1235,6 +1335,7 @@ const OrdersScreen = () => {
           style={styles.fab}
           onPress={() => setShowForm(true)}
           label="Nueva orden"
+          color="#ffffff"
         />
       )}
 
@@ -1368,8 +1469,16 @@ const OrdersScreen = () => {
                     Tomar orden
                   </Button>
                 )}
-                {detailOrder.estado === 'en_proceso' && detailOrder.ejecutor_id === user?.id && (
-                  <Button onPress={handleOpenCompletionFromDetail}>Registrar avance</Button>
+                {detailOrder.estado === 'en_proceso' &&
+                 String(detailOrder.ejecutor_id) === String(user?.id) &&
+                 detailOrder.ejecutor_id != null && (
+                  <Button
+                    mode="contained"
+                    onPress={handleOpenTreatmentFromDetail}
+                    icon="clipboard-edit"
+                  >
+                    Tratar
+                  </Button>
                 )}
                 <Button onPress={closeOrderDetail}>Cerrar</Button>
               </Dialog.Actions>
@@ -1503,6 +1612,61 @@ const OrdersScreen = () => {
             </Button>
           </Dialog.Actions>
         </Dialog>
+
+        <Dialog visible={Boolean(treatmentOrder)} onDismiss={closeTreatmentDialog}>
+          <Dialog.Title>Registrar avance de tratamiento</Dialog.Title>
+          <Dialog.Content>
+            {treatmentOrder && (
+              <>
+                <Text variant="bodyMedium" style={{ marginBottom: 16, color: '#666' }}>
+                  Orden: {treatmentOrder.titulo}
+                </Text>
+                <TextInput
+                  label="Trabajos realizados / Avances"
+                  value={treatmentNotes}
+                  onChangeText={setTreatmentNotes}
+                  mode="outlined"
+                  multiline
+                  numberOfLines={6}
+                  placeholder="Describe el avance del tratamiento, trabajos realizados, observaciones, etc."
+                  style={styles.dialogInput}
+                />
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <Checkbox
+                    status={treatmentCompleteOrder ? 'checked' : 'unchecked'}
+                    onPress={() => setTreatmentCompleteOrder(!treatmentCompleteOrder)}
+                  />
+                  <Text
+                    variant="bodyMedium"
+                    onPress={() => setTreatmentCompleteOrder(!treatmentCompleteOrder)}
+                    style={{ flex: 1 }}
+                  >
+                    Marcar orden como Completada
+                  </Text>
+                </View>
+
+                <HelperText type="info">
+                  {treatmentCompleteOrder
+                    ? 'La orden cambiará a estado Completado y se registrará la fecha de finalización.'
+                    : 'Esta información se guardará como parte del historial de la orden sin cambiar su estado.'}
+                </HelperText>
+              </>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeTreatmentDialog} disabled={treatmentLoading}>
+              Cancelar
+            </Button>
+            <Button
+              mode={treatmentCompleteOrder ? 'contained' : 'text'}
+              onPress={handleSubmitTreatment}
+              loading={treatmentLoading}
+            >
+              {treatmentCompleteOrder ? 'Completar orden' : 'Guardar avance'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
     </View>
   );
@@ -1552,6 +1716,10 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     marginBottom: 16,
+  },
+  searchBar: {
+    marginBottom: 16,
+    borderRadius: 12,
   },
   filterLabel: {
     marginBottom: 8,
