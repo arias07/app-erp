@@ -81,6 +81,7 @@ export interface OrdenMtto {
   aprobacion_comentarios?: string | null;
   calificacion_ejecucion?: number | null;
   calificacion_solicitante?: number | null;
+  retroalimentacion_solicitante?: string | null;
   fecha_programada?: string | null;
   fecha_inicio?: string | null;
   fecha_finalizacion?: string | null;

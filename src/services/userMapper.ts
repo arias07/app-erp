@@ -18,10 +18,11 @@ const normalizeRole = (role?: string | null): UserRole => {
     case 'jefe':
       return 'supervisor';
     case 'empleado':
+      return 'empleado';
     case 'operacion':
     case 'operador':
     case 'operaciones':
-      return 'empleado';
+      return 'operacion';
     case 'proveedor':
       return 'proveedor';
     case 'own':

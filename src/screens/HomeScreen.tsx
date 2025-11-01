@@ -1,7 +1,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { ActivityIndicator, Card, Text, Button } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Dimensions, Alert } from 'react-native';
+import { ActivityIndicator, Card, Text, Button, Portal, Dialog, TextInput, IconButton, Chip } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
@@ -17,7 +17,7 @@ import {
 } from '../types/bitacora.types';
 import { LineChart } from 'react-native-chart-kit';
 import { ordersService } from '../services/orders.service';
-import { OrdenMtto } from '../types/order.types';
+import { OrdenMtto, ORDER_STATUS_LABELS, ORDER_TYPE_LABELS } from '../types/order.types';
 
 const HomeScreen = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -31,6 +31,11 @@ const HomeScreen = () => {
     alerts: 0,
     completed: 0,
   });
+  const [ordersToRate, setOrdersToRate] = useState<OrdenMtto[]>([]);
+  const [selectedOrderToRate, setSelectedOrderToRate] = useState<OrdenMtto | null>(null);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingComments, setRatingComments] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   const chartWidth = useMemo(() => Dimensions.get('window').width - 64, []);
 
@@ -126,10 +131,41 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
       }).length;
 
       setWeeklySummary({ alerts, completed });
+
+      // Si el usuario es ejecutor, cargar órdenes pendientes de calificar al solicitante
+      if (user?.rol === 'ejecutor') {
+        const toRate = data.filter((order) => {
+          // Órdenes completadas y aprobadas donde el usuario es ejecutor
+          const isExecutor = order.ejecutor_id === user.id;
+          const isCompleted = order.estado === 'completado';
+          const isApproved = order.aprobacion_estado === 'aprobado';
+          const notRatedYet = order.calificacion_solicitante == null;
+          // Solo si el solicitante es operador
+          const solicitanteRol = order.solicitante?.rol;
+          const isSolicitanteOperador = solicitanteRol === 'operacion';
+
+          const shouldShow = isExecutor && isCompleted && isApproved && notRatedYet && isSolicitanteOperador;
+
+          // Debug log
+          if (isExecutor && isCompleted && isApproved && notRatedYet) {
+            console.log('[HomeScreen] Orden candidata a calificar:', {
+              id: order.id,
+              titulo: order.titulo,
+              solicitanteRol,
+              isSolicitanteOperador,
+              shouldShow
+            });
+          }
+
+          return shouldShow;
+        });
+        console.log('[HomeScreen] Órdenes a calificar encontradas:', toRate.length);
+        setOrdersToRate(toRate);
+      }
     } catch (err) {
       console.error('Error fetching weekly order summary', err);
     }
-  }, []);
+  }, [user]);
 
   const loadConceptos = useCallback(async () => {
     try {
@@ -308,6 +344,60 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
       })
       .filter(Boolean) as React.ReactElement[];
   }, [selectedConcept, selectedVariableId]);
+
+  const handleOpenRatingDialog = (order: OrdenMtto) => {
+    setSelectedOrderToRate(order);
+    setRatingValue(5);
+    setRatingComments('');
+  };
+
+  const handleCloseRatingDialog = () => {
+    setSelectedOrderToRate(null);
+    setRatingValue(5);
+    setRatingComments('');
+  };
+
+  const handleSubmitRating = async () => {
+    if (!selectedOrderToRate || !user) return;
+
+    try {
+      setSubmittingRating(true);
+      await ordersService.rateSolicitante({
+        orderId: selectedOrderToRate.id,
+        executorId: user.id,
+        calificacion: ratingValue,
+        comentarios: ratingComments.trim() || undefined,
+      });
+
+      Alert.alert('Éxito', 'Calificación enviada correctamente');
+      handleCloseRatingDialog();
+      // Recargar órdenes
+      await loadWeeklySummary();
+    } catch (error: any) {
+      console.error('Error submitting rating:', error);
+      Alert.alert('Error', error.message ?? 'No se pudo enviar la calificación');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const RatingSelector = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
+    <View style={styles.ratingRow}>
+      {[1, 2, 3, 4, 5].map((score) => (
+        <IconButton
+          key={score}
+          icon={() => (
+            <MaterialCommunityIcons
+              name={score <= value ? 'star' : 'star-outline'}
+              size={32}
+              color="#f5b301"
+            />
+          )}
+          onPress={() => onChange(score)}
+        />
+      ))}
+    </View>
+  );
 
   const chartData = useMemo(() => {
     if (!serie || serie.length === 0) return null;
@@ -527,7 +617,99 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
             )}
           </Card.Content>
         </Card>
+
+        {/* Sección de órdenes pendientes de calificar (solo para ejecutor) */}
+        {user?.rol === 'ejecutor' && ordersToRate.length > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Órdenes pendientes de calificar ({ordersToRate.length})
+              </Text>
+              <Text variant="bodySmall" style={styles.helper}>
+                Califica a los solicitantes de las órdenes completadas y aprobadas
+              </Text>
+              {ordersToRate.map((order) => (
+                <Card key={order.id} style={styles.orderToRateCard} mode="outlined">
+                  <Card.Content>
+                    <View style={styles.orderToRateHeader}>
+                      <Text variant="titleSmall" style={styles.orderToRateTitle}>
+                        {order.titulo}
+                      </Text>
+                      <Chip icon="star-outline" compact>
+                        Calificar
+                      </Chip>
+                    </View>
+                    <Text variant="bodySmall" style={styles.orderToRateMeta}>
+                      {ORDER_TYPE_LABELS[order.tipo]} • Folio #{order.folio}
+                    </Text>
+                    <Text variant="bodySmall" style={styles.orderToRateMeta}>
+                      Solicitante: {order.solicitante?.nombre_completo || 'N/A'}
+                    </Text>
+                    <Button
+                      mode="contained-tonal"
+                      icon="star"
+                      onPress={() => handleOpenRatingDialog(order)}
+                      style={styles.rateButton}
+                    >
+                      Calificar solicitante
+                    </Button>
+                  </Card.Content>
+                </Card>
+              ))}
+            </Card.Content>
+          </Card>
+        )}
       </ScrollView>
+
+      {/* Diálogo de calificación */}
+      <Portal>
+        <Dialog
+          visible={Boolean(selectedOrderToRate)}
+          onDismiss={handleCloseRatingDialog}
+        >
+          <Dialog.Title>Calificar solicitante</Dialog.Title>
+          <Dialog.ScrollArea>
+            <ScrollView
+              contentContainerStyle={styles.dialogScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {selectedOrderToRate && (
+                <>
+                  <Text variant="bodyMedium" style={styles.dialogOrderInfo}>
+                    Orden: {selectedOrderToRate.titulo}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.dialogOrderInfo}>
+                    Solicitante: {selectedOrderToRate.solicitante?.nombre_completo}
+                  </Text>
+                  <Text variant="labelLarge" style={styles.ratingLabel}>
+                    Calificación
+                  </Text>
+                  <RatingSelector value={ratingValue} onChange={setRatingValue} />
+                  <TextInput
+                    label="Comentarios (opcional)"
+                    value={ratingComments}
+                    onChangeText={setRatingComments}
+                    mode="outlined"
+                    multiline
+                    numberOfLines={4}
+                    style={styles.commentsInput}
+                    returnKeyType="done"
+                    blurOnSubmit={true}
+                  />
+                </>
+              )}
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={handleCloseRatingDialog} disabled={submittingRating}>
+              Cancelar
+            </Button>
+            <Button onPress={handleSubmitRating} loading={submittingRating} mode="contained">
+              Enviar calificación
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };
@@ -647,6 +829,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     color: '#666',
+  },
+  orderToRateCard: {
+    marginTop: 12,
+    borderRadius: 8,
+    borderColor: '#e0e0e0',
+  },
+  orderToRateHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  orderToRateTitle: {
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
+  },
+  orderToRateMeta: {
+    color: '#666',
+    marginBottom: 4,
+  },
+  rateButton: {
+    marginTop: 12,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  dialogOrderInfo: {
+    marginBottom: 8,
+    color: '#555',
+  },
+  ratingLabel: {
+    marginTop: 12,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  commentsInput: {
+    marginTop: 12,
+  },
+  dialogScrollContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
   },
 });
 

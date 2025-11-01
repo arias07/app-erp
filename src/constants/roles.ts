@@ -6,6 +6,7 @@ export const ROLES = {
   PROVEEDOR: 'proveedor',
   OWN: 'own',
   EJECUTOR: 'ejecutor',
+  OPERACION: 'operacion',
 } as const;
 
 export const PERMISSIONS = {
@@ -18,14 +19,14 @@ export const PERMISSIONS = {
   EDIT_INVENTORY: ['superadmin', 'administrador', 'supervisor'],
 
   // Órdenes de Mantenimiento
-  CREATE_ORDER: ['empleado', 'supervisor', 'administrador', 'superadmin', 'ejecutor'],
+  CREATE_ORDER: ['empleado', 'supervisor', 'administrador', 'superadmin', 'ejecutor', 'operacion'],
   VIEW_ALL_ORDERS: ['superadmin', 'administrador', 'supervisor'],
   ASSIGN_SELF: ['empleado', 'ejecutor'],
-  APPROVE_ORDER: ['supervisor', 'administrador', 'superadmin'],
+  APPROVE_ORDER: ['supervisor', 'administrador', 'superadmin', 'operacion'],
   UPLOAD_EVIDENCE: ['empleado', 'ejecutor'],
   SIGN_COMPLETION: ['empleado', 'supervisor', 'ejecutor'],
-  RATE_EXECUTOR: ['supervisor', 'administrador', 'superadmin'],
-  RATE_OPERATION: ['empleado'],
+  RATE_EXECUTOR: ['supervisor', 'administrador', 'superadmin', 'operacion'],
+  RATE_OPERATION: ['empleado', 'ejecutor'],
 
   // Bitacoras
   CREATE_BITACORA: ['superadmin', 'administrador', 'supervisor', 'empleado', 'operacion', 'ejecutor'],
@@ -42,5 +43,7 @@ export const PERMISSIONS = {
 };
 
 export const hasPermission = (userRole: string, permission: keyof typeof PERMISSIONS): boolean => {
-  return PERMISSIONS[permission].includes(userRole);
+  const result = PERMISSIONS[permission].includes(userRole);
+  console.log(`[hasPermission] role: "${userRole}", permission: "${permission}", result: ${result}`);
+  return result;
 };

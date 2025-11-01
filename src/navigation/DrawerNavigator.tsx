@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootState } from '../store/store';
 
 import HomeScreen from '../screens/HomeScreen';
+import HomeOperadorScreen from '../screens/HomeOperadorScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import OrdersScreen from '../screens/OrdersScreen';
@@ -22,24 +23,34 @@ export const DrawerNavigator = () => {
 
   // Definir qué pantallas puede ver cada rol
   const role = user?.rol || '';
+
+  // Para operadores, solo mostrar Home y Perfil
+  const isOperador = role === 'operacion';
+
+  console.log('[DrawerNavigator] User role:', role, 'isOperador:', isOperador);
+
   const inventoryRoles = new Set([
     'superadmin',
     'administrador',
     'supervisor',
     'empleado',
     'own',
-    'operacion',
     'ejecutor',
   ]);
   const managementRoles = new Set(['superadmin', 'administrador', 'supervisor']);
   const adminOnlyRoles = new Set(['superadmin', 'administrador']);
 
-  const canAccessInventory = inventoryRoles.has(role);
-  const canAccessOrders = inventoryRoles.has(role);
-  const canAccessBitacoras = inventoryRoles.has(role);
-  const canAccessManuales = inventoryRoles.has(role);
-  const canAccessReports = managementRoles.has(role);
-  const canAccessUsers = adminOnlyRoles.has(role);
+  const canAccessInventory = !isOperador && inventoryRoles.has(role);
+  const canAccessOrders = inventoryRoles.has(role) || isOperador; // Operador puede ver órdenes
+  const canAccessBitacoras = !isOperador && inventoryRoles.has(role);
+  const canAccessManuales = !isOperador && inventoryRoles.has(role);
+  const canAccessReports = !isOperador && managementRoles.has(role);
+  const canAccessUsers = !isOperador && adminOnlyRoles.has(role);
+
+  // Determinar qué componente usar para Home
+  const HomeComponent = isOperador ? HomeOperadorScreen : HomeScreen;
+
+  console.log('[DrawerNavigator] Using Home Component:', isOperador ? 'HomeOperadorScreen' : 'HomeScreen');
 
   return (
     <Drawer.Navigator
@@ -58,7 +69,7 @@ export const DrawerNavigator = () => {
     >
       <Drawer.Screen
         name="Home"
-        component={HomeScreen}
+        component={HomeComponent}
         options={{
           title: 'Inicio',
           drawerIcon: ({ color, size }) => (

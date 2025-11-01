@@ -499,10 +499,12 @@ const BitacorasScreen = () => {
                       <TextInput
                         label="Valor registrado"
                         value={currentValue.valor}
-                        onChangeText={(value) =>
-                          handleValorChange(puntoKey, variableKey, 'valor', value)
-                        }
-                        keyboardType={variable.tipo === 'numero' ? 'numeric' : 'default'}
+                        onChangeText={(value) => {
+                          // Solo permitir números, punto decimal y signo negativo
+                          const cleanValue = value.replace(/[^0-9.-]/g, '');
+                          handleValorChange(puntoKey, variableKey, 'valor', cleanValue);
+                        }}
+                        keyboardType="numeric"
                         mode="outlined"
                         style={styles.textInput}
                       />

@@ -9,6 +9,7 @@ import {
   RateSolicitanteInput,
   SubmitApprovalInput,
 } from '../types/order.types';
+import { notificationService } from './notification.service';
 
 const ORDER_BASE_SELECT = `
   *,
@@ -150,7 +151,40 @@ export const ordersService = {
       .single();
 
     handleError('create failed', error);
-    return normalizeOrderRow(data);
+    const newOrder = normalizeOrderRow(data);
+
+    // Si es correctiva, enviar notificación a todos los ejecutores
+    if (newOrder.tipo === 'correctiva') {
+      try {
+        const { data: executors } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('tipouser', 'ejecutor')
+          .eq('estado', 'activo');
+
+        if (executors && executors.length > 0) {
+          await notificationService.sendOrderCreatedNotification(
+            newOrder,
+            executors.map((e: any) => ({
+              id: e.id,
+              email: e.correo,
+              nombre_completo: e.nombres,
+              rol: e.tipouser,
+              activo: e.estado === 'activo',
+              calificacion_promedio: 0,
+              total_calificaciones: 0,
+              created_at: e.created_at,
+              updated_at: e.updated_at,
+            }))
+          );
+        }
+      } catch (notifError) {
+        console.error('Error sending order created notification:', notifError);
+        // No lanzar error, las notificaciones son secundarias
+      }
+    }
+
+    return newOrder;
   },
 
   async assignToExecutor({ orderId, executorId }: AssignOrderInput): Promise<OrdenMtto> {
@@ -165,7 +199,21 @@ export const ordersService = {
       .single();
 
     handleError('assignToExecutor failed', error);
-    return normalizeOrderRow(data);
+    const updatedOrder = normalizeOrderRow(data);
+
+    // Notificar al solicitante que se asignó un ejecutor
+    if (updatedOrder.ejecutor && updatedOrder.solicitante_id) {
+      try {
+        await notificationService.sendOrderAssignedNotification(
+          updatedOrder,
+          updatedOrder.ejecutor
+        );
+      } catch (notifError) {
+        console.error('Error sending order assigned notification:', notifError);
+      }
+    }
+
+    return updatedOrder;
   },
 
   async markCompleted({
@@ -190,7 +238,21 @@ export const ordersService = {
       .single();
 
     handleError('markCompleted failed', error);
-    return normalizeOrderRow(data);
+    const completedOrder = normalizeOrderRow(data);
+
+    // Notificar al solicitante que la orden se completó
+    if (completedOrder.solicitante) {
+      try {
+        await notificationService.sendOrderCompletedNotification(
+          completedOrder,
+          completedOrder.solicitante
+        );
+      } catch (notifError) {
+        console.error('Error sending order completed notification:', notifError);
+      }
+    }
+
+    return completedOrder;
   },
 
   async submitApproval({
@@ -235,6 +297,22 @@ export const ordersService = {
       .single();
 
     handleError('rateSolicitante failed', error);
+    return normalizeOrderRow(data);
+  },
+
+  async rejectOrder(orderId: string): Promise<OrdenMtto> {
+    const { data, error } = await supabase
+      .from('ordenesmtto')
+      .update({
+        estado: 'en_proceso',
+        aprobacion_estado: 'pendiente',
+        fecha_finalizacion: null,
+      })
+      .eq('id', orderId)
+      .select(ORDER_BASE_SELECT)
+      .single();
+
+    handleError('rejectOrder failed', error);
     return normalizeOrderRow(data);
   },
 };

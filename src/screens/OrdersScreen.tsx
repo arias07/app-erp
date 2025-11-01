@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, Alert, ScrollView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import {
   Card,
   Text,
@@ -68,7 +68,7 @@ const ORDER_TYPE_ICONS: Record<OrderType, keyof typeof MaterialCommunityIcons.gl
 const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   pendiente: '#ef6c00',
   en_proceso: '#1976d2',
-  completado: '#388e3c',
+  completado: '#4caf50', // Verde más brillante para órdenes completadas
 };
 
 const DEFAULT_METADATA: Record<OrderType, Record<string, string>> = {
@@ -201,6 +201,8 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
   supervisors,
   collaborators,
 }) => {
+  console.log('[OrderFormModal] Rendering with visible:', visible);
+
   const [form, setForm] = useState<OrderFormState>({
     titulo: '',
     descripcion: '',
@@ -219,6 +221,7 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
+    console.log('[OrderFormModal] visible changed to:', visible);
     if (!visible) {
       setForm({
         titulo: '',
@@ -319,13 +322,26 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
     item.nombre_completo.toLowerCase().includes(collaboratorQuery.toLowerCase())
   );
 
+  console.log('[OrderFormModal] About to render Portal and Modal, visible:', visible);
+
+  if (!visible) {
+    console.log('[OrderFormModal] Not rendering because visible is false');
+    return null;
+  }
+
   return (
     <Portal>
-      <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.modalContent}>
+      <Modal
+        visible={visible}
+        onDismiss={onDismiss}
+        contentContainerStyle={styles.modalContent}
+        dismissable={true}
+      >
         <ScrollView
           style={styles.modalScroll}
           contentContainerStyle={styles.modalScrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <Text variant="titleLarge" style={styles.modalTitle}>
             Nueva orden de mantenimiento
@@ -439,7 +455,7 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
             ))}
           </View>
 
-          {error && <HelperText type="error">{error}</HelperText>}
+                {error && <HelperText type="error">{error}</HelperText>}
 
           <View style={styles.modalActions}>
             <Button onPress={onDismiss} disabled={loading}>
@@ -471,7 +487,7 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
         <Searchbar
           placeholder="Buscar supervisor"
           value={supervisorQuery}
-          onChangeText={setSupervisorQuery}
+          onChangeText={(text) => setSupervisorQuery(text)}
           style={styles.selectorSearch}
         />
         <View style={styles.selectorList}>
@@ -509,7 +525,7 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
         <Searchbar
           placeholder="Buscar colaborador"
           value={collaboratorQuery}
-          onChangeText={setCollaboratorQuery}
+          onChangeText={(text) => setCollaboratorQuery(text)}
           style={styles.selectorSearch}
         />
         <View style={styles.selectorList}>
@@ -539,17 +555,35 @@ const OrderFormModal: React.FC<OrderFormModalProps> = ({
   );
 };
 
-const OrdersScreen = () => {
+const OrdersScreen = ({ route }: any) => {
+  console.log('[OrdersScreen] Component mounted/updated with route params:', route?.params);
+
   const { user } = useSelector((state: RootState) => state.auth);
   const [orders, setOrders] = useState<OrdenMtto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [showForm, setShowForm] = useState<boolean>(false);
+  const [showForm, setShowForm] = useState<boolean>(route?.params?.openForm || false);
   const [creatingOrder, setCreatingOrder] = useState<boolean>(false);
   const [executors, setExecutors] = useState<Usuario[]>([]);
   const [supervisors, setSupervisors] = useState<Usuario[]>([]);
   const [collaborators, setCollaborators] = useState<Usuario[]>([]);
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
+
+  console.log('[OrdersScreen] Initial showForm value from route:', route?.params?.openForm, 'final showForm:', showForm);
+
+  // Debug logging for showForm state changes
+  useEffect(() => {
+    console.log('[OrdersScreen] showForm state changed to:', showForm);
+  }, [showForm]);
+
+  // Watch for route params changes
+  useEffect(() => {
+    console.log('[OrdersScreen] Route params changed:', route?.params);
+    if (route?.params?.openForm) {
+      console.log('[OrdersScreen] openForm param detected, setting showForm to true');
+      setShowForm(true);
+    }
+  }, [route?.params]);
 
   const [completionOrder, setCompletionOrder] = useState<OrdenMtto | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
@@ -589,6 +623,13 @@ const OrdersScreen = () => {
 
   const canCreateOrder = Boolean(user?.rol && hasPermission(user.rol, 'CREATE_ORDER'));
   const canAssignSelf = Boolean(user?.rol && hasPermission(user.rol, 'ASSIGN_SELF'));
+
+  // Debug logs
+  console.log('[OrdersScreen] User:', {
+    rol: user?.rol,
+    canCreateOrder,
+    canAssignSelf,
+  });
 
   const formatUserName = (value?: any) => {
     if (!value) return 'Sin datos';
@@ -659,6 +700,16 @@ const OrdersScreen = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // Si es operador, solo mostrar sus órdenes (solicitadas, supervisadas o para aprobar)
+      if (user?.rol === 'operacion') {
+        const isSolicitante = order.solicitante_id === user.id;
+        const isSupervisor = order.supervisor_id === user.id;
+        const isAprobador = order.aprobador_id === user.id;
+        if (!isSolicitante && !isSupervisor && !isAprobador) {
+          return false;
+        }
+      }
+
       const statusMatch = statusFilter === 'todos' || order.estado === statusFilter;
       const typeMatch = typeFilter === 'todos' || order.tipo === typeFilter;
 
@@ -677,7 +728,7 @@ const OrdersScreen = () => {
 
       return statusMatch && typeMatch && searchMatch;
     });
-  }, [orders, statusFilter, typeFilter, searchQuery]);
+  }, [orders, statusFilter, typeFilter, searchQuery, user]);
 
   const handleCreateOrder = useCallback(
     async (form: OrderFormState) => {
@@ -1067,6 +1118,39 @@ const OrdersScreen = () => {
     }
   };
 
+  const handleAcceptOrder = (order: OrdenMtto) => {
+    setApprovalOrder(order);
+    setApprovalRating(5);
+    setApprovalComments('');
+  };
+
+  const handleRejectOrder = (order: OrdenMtto) => {
+    Alert.alert(
+      'Rechazar orden',
+      '¿Estás seguro de que deseas rechazar esta orden? Volverá a estado "En proceso" para ser tratada nuevamente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Rechazar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingOrderId(order.id);
+              await ordersService.rejectOrder(order.id);
+              Alert.alert('Éxito', 'La orden ha sido rechazada y devuelta a proceso');
+              await fetchOrders();
+            } catch (error: any) {
+              console.error('Error rejecting order:', error);
+              Alert.alert('Error', error.message ?? 'No se pudo rechazar la orden');
+            } finally {
+              setProcessingOrderId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderOrder = ({ item }: { item: OrdenMtto }) => {
     const isAssignedToCurrentUser = Boolean(user && item.ejecutor_id === user.id);
     const isPending = item.estado === 'pendiente';
@@ -1084,8 +1168,24 @@ const OrdersScreen = () => {
       item.calificacion_solicitante == null &&
       (item.tipo === 'correctiva' || item.tipo === 'preventiva');
 
+    // Operador puede aceptar/rechazar órdenes completadas que solicitó
+    const canReceiveOrder =
+      user?.rol === 'operacion' &&
+      item.estado === 'completado' &&
+      item.aprobacion_estado === 'pendiente' &&
+      String(item.solicitante_id) === String(user.id);
+
+    const isCompleted = item.estado === 'completado';
+
     return (
-      <Card style={styles.orderCard} mode="elevated" onPress={() => openOrderDetail(item)}>
+      <Card
+        style={[
+          styles.orderCard,
+          isCompleted && styles.orderCardCompleted
+        ]}
+        mode="elevated"
+        onPress={() => openOrderDetail(item)}
+      >
         <Card.Content>
           <View style={styles.orderCardHeader}>
             <View style={styles.orderCardHeaderLeft}>
@@ -1202,6 +1302,29 @@ const OrdersScreen = () => {
               Calificar solicitante
             </Button>
           )}
+
+          {canReceiveOrder && (
+            <>
+              <Button
+                mode="contained"
+                icon="check-circle"
+                onPress={() => handleAcceptOrder(item)}
+                style={[styles.actionButton, styles.acceptButton]}
+                buttonColor="#4caf50"
+              >
+                Aceptar
+              </Button>
+              <Button
+                mode="outlined"
+                icon="close-circle"
+                onPress={() => handleRejectOrder(item)}
+                style={[styles.actionButton, styles.rejectButton]}
+                textColor="#d32f2f"
+              >
+                Rechazar
+              </Button>
+            </>
+          )}
         </View>
       </Card>
     );
@@ -1264,7 +1387,7 @@ const OrdersScreen = () => {
 
         <Searchbar
           placeholder="Buscar por título, descripción, ubicación..."
-          onChangeText={setSearchQuery}
+          onChangeText={(text) => setSearchQuery(text)}
           value={searchQuery}
           style={styles.searchBar}
         />
@@ -1333,15 +1456,28 @@ const OrdersScreen = () => {
         <FAB
           icon="plus"
           style={styles.fab}
-          onPress={() => setShowForm(true)}
+          onPress={() => {
+            console.log('[OrdersScreen] FAB pressed, opening form');
+            setShowForm(true);
+          }}
           label="Nueva orden"
           color="#ffffff"
         />
       )}
 
+      {console.log('[OrdersScreen] About to render OrderFormModal with:', {
+        visible: showForm,
+        supervisorsCount: supervisors.length,
+        collaboratorsCount: collaborators.length,
+        loading: creatingOrder,
+      })}
+
       <OrderFormModal
         visible={showForm}
-        onDismiss={() => setShowForm(false)}
+        onDismiss={() => {
+          console.log('[OrdersScreen] OrderFormModal onDismiss called');
+          setShowForm(false);
+        }}
         onSubmit={handleCreateOrder}
         loading={creatingOrder}
         supervisors={supervisors}
@@ -1488,23 +1624,33 @@ const OrdersScreen = () => {
 
         <Dialog visible={Boolean(completionOrder)} onDismiss={() => setCompletionOrder(null)}>
           <Dialog.Title>Marcar orden como completada</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              label="Trabajos realizados"
-              value={completionNotes}
-              onChangeText={setCompletionNotes}
-              mode="outlined"
-              multiline
-              style={styles.dialogInput}
-            />
-            <TextInput
-              label="Recursos utilizados (opcional)"
-              value={completionResources}
-              onChangeText={setCompletionResources}
-              mode="outlined"
-              multiline
-              style={styles.dialogInput}
-            />
+          <Dialog.ScrollArea>
+            <ScrollView
+              contentContainerStyle={styles.dialogScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <TextInput
+                label="Trabajos realizados"
+                value={completionNotes}
+                onChangeText={setCompletionNotes}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={styles.dialogInput}
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
+              <TextInput
+                label="Recursos utilizados (opcional)"
+                value={completionResources}
+                onChangeText={setCompletionResources}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.dialogInput}
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
 
             <View style={styles.evidenceSection}>
               <Text variant="labelLarge" style={styles.evidenceTitle}>
@@ -1548,7 +1694,8 @@ const OrdersScreen = () => {
                 </Button>
               </View>
             </View>
-          </Dialog.Content>
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button
               onPress={() => setCompletionOrder(null)}
@@ -1567,18 +1714,26 @@ const OrdersScreen = () => {
 
         <Dialog visible={Boolean(approvalOrder)} onDismiss={() => setApprovalOrder(null)}>
           <Dialog.Title>Visto bueno del trabajo</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.ratingValueLabel}>Calificacion del trabajo</Text>
-            <RatingSelector value={approvalRating} onChange={setApprovalRating} />
-            <TextInput
-              label="Comentarios (opcional)"
-              value={approvalComments}
-              onChangeText={setApprovalComments}
-              mode="outlined"
-              multiline
-              style={styles.dialogInput}
-            />
-          </Dialog.Content>
+          <Dialog.ScrollArea>
+            <ScrollView
+              contentContainerStyle={styles.dialogScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.ratingValueLabel}>Calificacion del trabajo</Text>
+              <RatingSelector value={approvalRating} onChange={setApprovalRating} />
+              <TextInput
+                label="Comentarios (opcional)"
+                value={approvalComments}
+                onChangeText={setApprovalComments}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={styles.dialogInput}
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setApprovalOrder(null)} disabled={approvalLoading}>
               Cancelar
@@ -1591,18 +1746,26 @@ const OrdersScreen = () => {
 
         <Dialog visible={Boolean(ratingOrder)} onDismiss={() => setRatingOrder(null)}>
           <Dialog.Title>Calificar al solicitante</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.ratingValueLabel}>Calificacion recibida</Text>
-            <RatingSelector value={ratingValue} onChange={setRatingValue} />
-            <TextInput
-              label="Comentarios (opcional)"
-              value={ratingComments}
-              onChangeText={setRatingComments}
-              mode="outlined"
-              multiline
-              style={styles.dialogInput}
-            />
-          </Dialog.Content>
+          <Dialog.ScrollArea>
+            <ScrollView
+              contentContainerStyle={styles.dialogScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.ratingValueLabel}>Calificacion recibida</Text>
+              <RatingSelector value={ratingValue} onChange={setRatingValue} />
+              <TextInput
+                label="Comentarios (opcional)"
+                value={ratingComments}
+                onChangeText={setRatingComments}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={styles.dialogInput}
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setRatingOrder(null)} disabled={ratingLoading}>
               Cancelar
@@ -1615,22 +1778,28 @@ const OrdersScreen = () => {
 
         <Dialog visible={Boolean(treatmentOrder)} onDismiss={closeTreatmentDialog}>
           <Dialog.Title>Registrar avance de tratamiento</Dialog.Title>
-          <Dialog.Content>
-            {treatmentOrder && (
-              <>
-                <Text variant="bodyMedium" style={{ marginBottom: 16, color: '#666' }}>
-                  Orden: {treatmentOrder.titulo}
-                </Text>
-                <TextInput
-                  label="Trabajos realizados / Avances"
-                  value={treatmentNotes}
-                  onChangeText={setTreatmentNotes}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={6}
-                  placeholder="Describe el avance del tratamiento, trabajos realizados, observaciones, etc."
-                  style={styles.dialogInput}
-                />
+          <Dialog.ScrollArea>
+            <ScrollView
+              contentContainerStyle={styles.dialogScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {treatmentOrder && (
+                <>
+                  <Text variant="bodyMedium" style={{ marginBottom: 16, color: '#666' }}>
+                    Orden: {treatmentOrder.titulo}
+                  </Text>
+                  <TextInput
+                    label="Trabajos realizados / Avances"
+                    value={treatmentNotes}
+                    onChangeText={setTreatmentNotes}
+                    mode="outlined"
+                    multiline
+                    numberOfLines={6}
+                    placeholder="Describe el avance del tratamiento, trabajos realizados, observaciones, etc."
+                    style={styles.dialogInput}
+                    returnKeyType="done"
+                    blurOnSubmit={true}
+                  />
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                   <Checkbox
@@ -1646,14 +1815,15 @@ const OrdersScreen = () => {
                   </Text>
                 </View>
 
-                <HelperText type="info">
-                  {treatmentCompleteOrder
-                    ? 'La orden cambiará a estado Completado y se registrará la fecha de finalización.'
-                    : 'Esta información se guardará como parte del historial de la orden sin cambiar su estado.'}
-                </HelperText>
-              </>
-            )}
-          </Dialog.Content>
+                  <HelperText type="info">
+                    {treatmentCompleteOrder
+                      ? 'La orden cambiará a estado Completado y se registrará la fecha de finalización.'
+                      : 'Esta información se guardará como parte del historial de la orden sin cambiar su estado.'}
+                  </HelperText>
+                </>
+              )}
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={closeTreatmentDialog} disabled={treatmentLoading}>
               Cancelar
@@ -1731,6 +1901,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 12,
   },
+  orderCardCompleted: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4caf50',
+    backgroundColor: '#f1f8f4',
+  },
   orderCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1767,10 +1942,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statusChip: {
-    backgroundColor: '#6200ee',
+    // El color se aplicará dinámicamente vía theme
   },
   statusChipText: {
     color: '#fff',
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1782,11 +1958,18 @@ const styles = StyleSheet.create({
     marginRight: 12,
     marginBottom: 8,
   },
+  acceptButton: {
+    minWidth: 120,
+  },
+  rejectButton: {
+    minWidth: 120,
+    borderColor: '#d32f2f',
+  },
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 24,
-    backgroundColor: '#6200ee',
+    backgroundColor: '#00bcd4', // Azul cielo (cyan)
   },
   emptyState: {
     alignItems: 'center',
@@ -1798,15 +1981,28 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     margin: 16,
-    padding: 16,
     backgroundColor: '#fff',
     borderRadius: 12,
+    maxHeight: '90%',
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+  },
+  modalInner: {
+    width: '100%',
   },
   modalScroll: {
-    maxHeight: 640,
+    flexGrow: 0,
   },
   modalScrollContent: {
     paddingBottom: 12,
+    flexGrow: 1,
   },
   modalTitle: {
     fontWeight: '600',
@@ -1865,6 +2061,10 @@ const styles = StyleSheet.create({
   },
   dialogInput: {
     marginBottom: 12,
+  },
+  dialogScrollContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
   },
   evidenceSection: {
     marginTop: 8,

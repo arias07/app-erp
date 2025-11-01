@@ -37,7 +37,20 @@ const fetchProfileByColumn = async (
     return null;
   }
 
-  return mapSupabaseUserToUsuario(data[0]);
+  const rawUser = data[0];
+  console.log('getUsuarioProfile - Raw data from DB:', {
+    tipouser: rawUser.tipouser,
+    rol: rawUser.rol,
+    nombres: rawUser.nombres,
+  });
+
+  const mappedUser = mapSupabaseUserToUsuario(rawUser);
+  console.log('getUsuarioProfile - After mapping:', {
+    rol: mappedUser.rol,
+    nombre_completo: mappedUser.nombre_completo,
+  });
+
+  return mappedUser;
 };
 
 const getUsuarioProfile = async (filter: { email?: string; idauth?: string }): Promise<Usuario | null> => {
@@ -104,8 +117,23 @@ export const authService = {
    */
   signOut: async (): Promise<void> => {
     console.log('authService.signOut called');
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      // Ignorar el error "Auth session missing" en iOS
+      if (error && error.message !== 'Auth session missing!') {
+        throw error;
+      }
+
+      console.log('authService.signOut completed successfully');
+    } catch (error: any) {
+      // Si es el error de sesión faltante, lo ignoramos (ya se cerró la sesión)
+      if (error?.message === 'Auth session missing!') {
+        console.log('Session already cleared, ignoring error');
+        return;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -122,10 +150,17 @@ export const authService = {
       console.error('authService.getCurrentUser session error:', error);
       throw error;
     }
-    
+
     if (!user) return null;
 
-      return await getUsuarioProfile({ idauth: user.id });
+    const profile = await getUsuarioProfile({ idauth: user.id });
+    console.log('authService.getCurrentUser - Profile loaded:', {
+      id: profile?.id,
+      email: profile?.email,
+      rol: profile?.rol,
+      nombre: profile?.nombre_completo,
+    });
+    return profile;
   },
 
   /**
