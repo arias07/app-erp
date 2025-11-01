@@ -575,6 +575,9 @@ const OrdersScreen = () => {
   const [ratingComments, setRatingComments] = useState('');
   const [ratingLoading, setRatingLoading] = useState(false);
 
+  const [detailOrder, setDetailOrder] = useState<OrdenMtto | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('todos');
 
@@ -690,7 +693,7 @@ const OrdersScreen = () => {
   );
 
   const handleAssignToMe = useCallback(
-    (order: OrdenMtto) => {
+    (order: OrdenMtto, onSuccess?: (updated: OrdenMtto) => void) => {
       if (!user) {
         Alert.alert('Sesion requerida', 'Debes iniciar sesion para tomar ordenes.');
         return;
@@ -711,6 +714,9 @@ const OrdersScreen = () => {
                   executorId: user.id,
                 });
                 setOrders((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+                if (onSuccess) {
+                  onSuccess(updated);
+                }
                 await notificationService.sendOrderAssignedNotification(updated, user);
               } catch (error: any) {
                 console.error('Error assigning order', error);
@@ -731,6 +737,36 @@ const OrdersScreen = () => {
     setCompletionNotes(order.trabajos_realizados ?? '');
     setCompletionResources(order.recursos_utilizados ?? '');
     setCompletionEvidences([]);
+  };
+
+  const openOrderDetail = (order: OrdenMtto) => {
+    setDetailOrder(order);
+    setDetailVisible(true);
+  };
+
+  const closeOrderDetail = () => {
+    setDetailVisible(false);
+    setDetailOrder(null);
+  };
+
+  useEffect(() => {
+    if (!detailVisible) {
+      setDetailOrder(null);
+      return;
+    }
+
+    if (detailOrder) {
+      const updated = orders.find((current) => current.id === detailOrder.id);
+      if (updated && updated !== detailOrder) {
+        setDetailOrder(updated);
+      }
+    }
+  }, [orders, detailVisible, detailOrder]);
+
+  const handleOpenCompletionFromDetail = () => {
+    if (!detailOrder) return;
+    openCompletionDialog(detailOrder);
+    closeOrderDetail();
   };
 
   const handleRemoveEvidence = (index: number) => {
@@ -957,7 +993,7 @@ const OrdersScreen = () => {
       (item.tipo === 'correctiva' || item.tipo === 'preventiva');
 
     return (
-      <Card style={styles.orderCard} mode="elevated">
+      <Card style={styles.orderCard} mode="elevated" onPress={() => openOrderDetail(item)}>
         <Card.Content>
           <View style={styles.orderCardHeader}>
             <View style={styles.orderCardHeaderLeft}>
@@ -986,6 +1022,7 @@ const OrdersScreen = () => {
               icon={({ size, color }) => (
                 <MaterialCommunityIcons name="information-outline" size={size} color={color} />
               )}
+              onPress={() => openOrderDetail(item)}
               theme={{
                 colors: { secondaryContainer: ORDER_STATUS_COLORS[item.estado] },
               }}
@@ -1211,6 +1248,135 @@ const OrdersScreen = () => {
       />
 
       <Portal>
+        <Dialog visible={detailVisible} onDismiss={closeOrderDetail} style={styles.detailDialog}>
+          {detailOrder && (
+            <>
+              <Dialog.Title>{detailOrder.titulo}</Dialog.Title>
+              <Dialog.Content style={styles.detailContent}>
+                <ScrollView
+                  style={styles.detailScroll}
+                  contentContainerStyle={styles.detailScrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.detailHeader}>
+                    <Chip
+                      style={[
+                        styles.detailStatusChip,
+                        { backgroundColor: ORDER_STATUS_COLORS[detailOrder.estado] },
+                      ]}
+                      textStyle={styles.detailStatusText}
+                      icon="playlist-check"
+                    >
+                      {ORDER_STATUS_LABELS[detailOrder.estado]}
+                    </Chip>
+                    <Chip style={styles.detailPriorityChip} icon="alert">
+                      {ORDER_PRIORITY_LABELS[detailOrder.prioridad]}
+                    </Chip>
+                  </View>
+
+                  <Text style={styles.detailDescription}>{detailOrder.descripcion}</Text>
+
+                  <Divider style={styles.detailDivider} />
+
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Tipo</Text>
+                    <Text style={styles.detailValue}>{ORDER_TYPE_LABELS[detailOrder.tipo]}</Text>
+                  </View>
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Solicitante</Text>
+                    <Text style={styles.detailValue}>{formatUserName(detailOrder.solicitante)}</Text>
+                  </View>
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Ejecutor</Text>
+                    <Text style={styles.detailValue}>
+                      {detailOrder.ejecutor ? formatUserName(detailOrder.ejecutor) : 'Sin asignar'}
+                    </Text>
+                  </View>
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Supervisor</Text>
+                    <Text style={styles.detailValue}>
+                      {detailOrder.supervisor ? formatUserName(detailOrder.supervisor) : 'Sin asignar'}
+                    </Text>
+                  </View>
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Programada</Text>
+                    <Text style={styles.detailValue}>{formatDate(detailOrder.fecha_programada)}</Text>
+                  </View>
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Inicio</Text>
+                    <Text style={styles.detailValue}>{formatDate(detailOrder.fecha_inicio)}</Text>
+                  </View>
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailLabel}>Finalización</Text>
+                    <Text style={styles.detailValue}>{formatDate(detailOrder.fecha_finalizacion)}</Text>
+                  </View>
+
+                  {detailOrder.detalles && Object.keys(detailOrder.detalles).length > 0 && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionHeading}>Detalles específicos</Text>
+                      {Object.entries(detailOrder.detalles).map(([key, value]) => (
+                        <View key={key} style={styles.detailMetadataRow}>
+                          <Text style={styles.detailMetadataLabel}>{key}</Text>
+                          <Text style={styles.detailMetadataValue}>{String(value ?? '')}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {detailOrder.trabajos_realizados && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionHeading}>Trabajos realizados</Text>
+                      <Text style={styles.detailValue}>{detailOrder.trabajos_realizados}</Text>
+                    </View>
+                  )}
+
+                  {detailOrder.recursos_utilizados && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionHeading}>Recursos utilizados</Text>
+                      <Text style={styles.detailValue}>{detailOrder.recursos_utilizados}</Text>
+                    </View>
+                  )}
+
+                  {detailOrder.evidencias && detailOrder.evidencias.length > 0 && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionHeading}>Evidencias</Text>
+                      <View style={styles.evidenceChipsContainer}>
+                        {detailOrder.evidencias.map((evidence, index) => (
+                          <Chip
+                            key={`${evidence.path}-${index}`}
+                            icon={evidence.tipo === 'imagen' ? 'image' : 'file-document'}
+                            style={styles.evidenceChip}
+                          >
+                            {evidence.nombre}
+                          </Chip>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </ScrollView>
+              </Dialog.Content>
+              <Dialog.Actions>
+                {detailOrder.estado === 'pendiente' && canAssignSelf && !detailOrder.ejecutor_id && (
+                  <Button
+                    onPress={() =>
+                      handleAssignToMe(detailOrder, (updated) => {
+                        setDetailOrder(updated);
+                      })
+                    }
+                    loading={processingOrderId === detailOrder.id}
+                  >
+                    Tomar orden
+                  </Button>
+                )}
+                {detailOrder.estado === 'en_proceso' && detailOrder.ejecutor_id === user?.id && (
+                  <Button onPress={handleOpenCompletionFromDetail}>Registrar avance</Button>
+                )}
+                <Button onPress={closeOrderDetail}>Cerrar</Button>
+              </Dialog.Actions>
+            </>
+          )}
+        </Dialog>
+
         <Dialog visible={Boolean(completionOrder)} onDismiss={() => setCompletionOrder(null)}>
           <Dialog.Title>Marcar orden como completada</Dialog.Title>
           <Dialog.Content>
@@ -1562,6 +1728,77 @@ const styles = StyleSheet.create({
   },
   evidenceButtonSpacer: {
     marginRight: 8,
+  },
+  detailDialog: {
+    maxHeight: '85%',
+  },
+  detailContent: {
+    paddingBottom: 0,
+  },
+  detailScroll: {
+    maxHeight: 360,
+  },
+  detailScrollContent: {
+    paddingBottom: 12,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailStatusChip: {
+    marginRight: 8,
+  },
+  detailStatusText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  detailPriorityChip: {
+    backgroundColor: '#f0f0ff',
+  },
+  detailTitle: {
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  detailDescription: {
+    color: '#555',
+  },
+  detailDivider: {
+    marginVertical: 12,
+  },
+  detailInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  detailLabel: {
+    color: '#666',
+  },
+  detailValue: {
+    fontWeight: '600',
+    color: '#333',
+  },
+  detailSection: {
+    marginTop: 12,
+    paddingVertical: 4,
+  },
+  sectionHeading: {
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  detailMetadataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  detailMetadataLabel: {
+    color: '#666',
+  },
+  detailMetadataValue: {
+    color: '#333',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });
 

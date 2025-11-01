@@ -17,7 +17,7 @@ const ORDER_BASE_SELECT = `
     nombre_completo:nombres,
     last_name,
     mother_last_name,
-    email:correo,
+    correo,
     rol:tipouser
   ),
   ejecutor:usuarios!ordenesmtto_ejecutor_id_fkey(
@@ -25,7 +25,7 @@ const ORDER_BASE_SELECT = `
     nombre_completo:nombres,
     last_name,
     mother_last_name,
-    email:correo,
+    correo,
     rol:tipouser
   ),
   supervisor:usuarios!ordenesmtto_supervisor_id_fkey(
@@ -33,7 +33,7 @@ const ORDER_BASE_SELECT = `
     nombre_completo:nombres,
     last_name,
     mother_last_name,
-    email:correo,
+    correo,
     rol:tipouser
   ),
   colaborador_area:usuarios!ordenesmtto_colaborador_area_id_fkey(
@@ -41,7 +41,7 @@ const ORDER_BASE_SELECT = `
     nombre_completo:nombres,
     last_name,
     mother_last_name,
-    email:correo,
+    correo,
     rol:tipouser
   )
 `;
@@ -51,6 +51,26 @@ const handleError = (context: string, error: any) => {
     console.error(`[ordersService] ${context}`, error);
     throw error;
   }
+};
+
+const normalizeUsuario = (usuario: any) => {
+  if (!usuario) return null;
+  return {
+    ...usuario,
+    email: usuario.email ?? usuario.correo ?? '',
+    nombre_completo: usuario.nombre_completo ?? usuario.nombres ?? usuario.nombre ?? '',
+  };
+};
+
+const normalizeOrderRow = (row: any): OrdenMtto => {
+  if (!row) return row;
+  return {
+    ...row,
+    solicitante: normalizeUsuario(row.solicitante),
+    ejecutor: normalizeUsuario(row.ejecutor),
+    supervisor: normalizeUsuario(row.supervisor),
+    colaborador_area: normalizeUsuario(row.colaborador_area),
+  } as OrdenMtto;
 };
 
 const buildFilters = (filters?: OrderFilters) => {
@@ -105,7 +125,7 @@ export const ordersService = {
     const query = buildFilters(filters);
     const { data, error } = await query;
     handleError('list failed', error);
-    return data ?? [];
+    return (data ?? []).map(normalizeOrderRow);
   },
 
   async create(input: CreateOrdenMttoInput): Promise<OrdenMtto> {
@@ -130,7 +150,7 @@ export const ordersService = {
       .single();
 
     handleError('create failed', error);
-    return data as OrdenMtto;
+    return normalizeOrderRow(data);
   },
 
   async assignToExecutor({ orderId, executorId }: AssignOrderInput): Promise<OrdenMtto> {
@@ -145,7 +165,7 @@ export const ordersService = {
       .single();
 
     handleError('assignToExecutor failed', error);
-    return data as OrdenMtto;
+    return normalizeOrderRow(data);
   },
 
   async markCompleted({
@@ -170,7 +190,7 @@ export const ordersService = {
       .single();
 
     handleError('markCompleted failed', error);
-    return data as OrdenMtto;
+    return normalizeOrderRow(data);
   },
 
   async submitApproval({
@@ -194,7 +214,7 @@ export const ordersService = {
       .single();
 
     handleError('submitApproval failed', error);
-    return data as OrdenMtto;
+    return normalizeOrderRow(data);
   },
 
   async rateSolicitante({
@@ -215,6 +235,6 @@ export const ordersService = {
       .single();
 
     handleError('rateSolicitante failed', error);
-    return data as OrdenMtto;
+    return normalizeOrderRow(data);
   },
 };

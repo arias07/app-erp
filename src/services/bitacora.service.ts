@@ -180,7 +180,16 @@ export const bitacoraService = {
       p_limit: limit,
     });
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '22P02') {
+        console.warn(
+          'No se pudo convertir algunos valores a numérico al obtener series de bitacora. Se omiten esas lecturas.'
+        );
+        return [];
+      }
+      throw error;
+    }
+
     return (data ?? []) as BitacoraSerieDato[];
   },
 
