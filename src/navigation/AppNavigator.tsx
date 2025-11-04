@@ -39,8 +39,6 @@ function OperadorTabs() {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Orders') {
-            iconName = focused ? 'clipboard-list' : 'clipboard-list-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'account' : 'account-outline';
           }
@@ -56,11 +54,6 @@ function OperadorTabs() {
         name="Home"
         component={HomeOperadorScreen}
         options={{ title: 'Inicio' }}
-      />
-      <Tab.Screen
-        name="Orders"
-        component={OrdersScreen}
-        options={{ title: 'Órdenes' }}
       />
       <Tab.Screen
         name="Profile"
@@ -237,6 +230,20 @@ export function AppNavigator() {
           <>
             {console.log('Rendering tabs for user:', user.email, 'rol:', user.rol)}
             <Stack.Screen name="MainTabs" component={TabsComponent} />
+
+            {/* Pantalla de órdenes para operadores (accesible vía navegación programática) */}
+            {isOperador && (
+              <Stack.Screen
+                name="Orders"
+                component={OrdersScreen}
+                options={{
+                  headerShown: true,
+                  title: 'Órdenes',
+                  presentation: 'card'
+                }}
+              />
+            )}
+
             <Stack.Screen
               name="CreateSolicitud"
               component={CreateSolicitudScreen}

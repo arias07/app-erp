@@ -1942,11 +1942,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statusChip: {
-    // El color se aplicará dinámicamente vía theme
+    height: 32,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusChipText: {
     color: '#fff',
+    fontSize: 13,
     fontWeight: '600',
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 0,
+    marginBottom: 0,
   },
   actionButtons: {
     flexDirection: 'row',

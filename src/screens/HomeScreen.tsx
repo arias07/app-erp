@@ -113,8 +113,10 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
   };
 
   const loadWeeklySummary = useCallback(async () => {
+    console.log('[HomeScreen] loadWeeklySummary called, user:', { id: user?.id, rol: user?.rol });
     try {
       const data = (await ordersService.list()) as OrdenMtto[];
+      console.log('[HomeScreen] Total orders loaded:', data.length);
       const reset = computeWeeklyReset();
 
       const alerts = data.filter(
@@ -133,10 +135,12 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
       setWeeklySummary({ alerts, completed });
 
       // Si el usuario es ejecutor, cargar órdenes pendientes de calificar al solicitante
+      console.log('[HomeScreen] Checking if user is ejecutor:', user?.rol === 'ejecutor');
       if (user?.rol === 'ejecutor') {
+        console.log('[HomeScreen] User is ejecutor, filtering orders to rate...');
         const toRate = data.filter((order) => {
           // Órdenes completadas y aprobadas donde el usuario es ejecutor
-          const isExecutor = order.ejecutor_id === user.id;
+          const isExecutor = String(order.ejecutor_id) === String(user.id);
           const isCompleted = order.estado === 'completado';
           const isApproved = order.aprobacion_estado === 'aprobado';
           const notRatedYet = order.calificacion_solicitante == null;
@@ -146,11 +150,19 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
 
           const shouldShow = isExecutor && isCompleted && isApproved && notRatedYet && isSolicitanteOperador;
 
-          // Debug log
-          if (isExecutor && isCompleted && isApproved && notRatedYet) {
+          // Debug log for all completed and approved orders where user is executor
+          if (isExecutor && isCompleted && isApproved) {
             console.log('[HomeScreen] Orden candidata a calificar:', {
               id: order.id,
+              folio: order.folio,
               titulo: order.titulo,
+              ejecutor_id: order.ejecutor_id,
+              user_id: user.id,
+              isExecutor,
+              isCompleted,
+              isApproved,
+              notRatedYet,
+              calificacion_solicitante: order.calificacion_solicitante,
               solicitanteRol,
               isSolicitanteOperador,
               shouldShow
@@ -619,6 +631,11 @@ const buildCandidateIds = (primary?: string | null, extras: Array<string | undef
         </Card>
 
         {/* Sección de órdenes pendientes de calificar (solo para ejecutor) */}
+        {console.log('[HomeScreen] Rendering rating section check:', {
+          isEjecutor: user?.rol === 'ejecutor',
+          ordersToRateLength: ordersToRate.length,
+          shouldShow: user?.rol === 'ejecutor' && ordersToRate.length > 0
+        })}
         {user?.rol === 'ejecutor' && ordersToRate.length > 0 && (
           <Card style={styles.card}>
             <Card.Content>
@@ -729,7 +746,7 @@ const styles = StyleSheet.create({
   welcomeCard: {
     marginBottom: 16,
     borderRadius: 12,
-    backgroundColor: '#e8def8',
+    backgroundColor: '#E8F5CD', // Verde lima claro ERPHYX
   },
   welcomeContent: {
     alignItems: 'center',
@@ -738,7 +755,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontWeight: 'bold',
     marginTop: 12,
-    color: '#6200ee',
+    color: '#1E3B33', // Verde oscuro ERPHYX
   },
   userName: {
     marginTop: 4,

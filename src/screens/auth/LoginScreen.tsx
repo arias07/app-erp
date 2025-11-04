@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Snackbar } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { authService } from '../../services/authService';
+import { BRAND_COLORS } from '../../constants/theme';
+import { ErphyxLogo } from '../../components/branding';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -45,15 +46,19 @@ const LoginScreen = () => {
       style={styles.container}
     >
       <View style={styles.logoContainer}>
-        <MaterialCommunityIcons name="warehouse" size={100} color="#6200ee" />
+        <ErphyxLogo width={140} height={140} />
       </View>
-      
-      <Text variant="headlineMedium" style={styles.title}>
-        Bienvenido
+
+      <Text variant="headlineLarge" style={styles.title}>
+        ERPHYX
       </Text>
-      
-      <Text variant="bodyMedium" style={styles.subtitle}>
-        Sistema de Gestión ERP
+
+      <Text variant="titleMedium" style={styles.subtitle}>
+        GO
+      </Text>
+
+      <Text variant="bodyMedium" style={styles.description}>
+        Sistema de Gestión Empresarial
       </Text>
       
       <TextInput
@@ -111,17 +116,27 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
   title: {
     textAlign: 'center',
-    marginBottom: 10,
-    fontWeight: 'bold',
+    marginBottom: 0,
+    fontWeight: '900',
+    color: BRAND_COLORS.secondary,
+    letterSpacing: 2,
   },
   subtitle: {
     textAlign: 'center',
-    marginBottom: 30,
-    color: '#666',
+    marginBottom: 8,
+    fontWeight: 'bold',
+    color: BRAND_COLORS.secondary,
+  },
+  description: {
+    textAlign: 'center',
+    marginBottom: 40,
+    color: BRAND_COLORS.textSecondary,
   },
   input: {
     marginBottom: 15,

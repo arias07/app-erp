@@ -217,7 +217,7 @@ const HomeOperadorScreen = () => {
         <Card style={styles.welcomeCard}>
           <Card.Content>
             <View style={styles.welcomeContent}>
-              <MaterialCommunityIcons name="hand-wave" size={40} color="#6200ee" />
+              <MaterialCommunityIcons name="hand-wave" size={40} color="#A3C400" />
               <Text variant="headlineMedium" style={styles.greeting}>
                 ¡Bienvenido, Operador!
               </Text>
@@ -269,7 +269,7 @@ const HomeOperadorScreen = () => {
                         <MaterialCommunityIcons
                           name="clipboard-text"
                           size={24}
-                          color="#6200ee"
+                          color="#A3C400"
                           style={styles.orderIcon}
                         />
                         <Text variant="titleSmall" style={styles.orderTitle}>
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   welcomeCard: {
     marginBottom: 16,
     borderRadius: 12,
-    backgroundColor: '#e8def8',
+    backgroundColor: '#E8F5CD', // Verde lima claro ERPHYX
   },
   welcomeContent: {
     alignItems: 'center',
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontWeight: 'bold',
     marginTop: 12,
-    color: '#6200ee',
+    color: '#1E3B33', // Verde oscuro ERPHYX
   },
   userName: {
     marginTop: 4,
@@ -486,12 +486,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusChip: {
-    height: 28,
+    height: 32,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusChipText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 0,
+    marginBottom: 0,
   },
   orderType: {
     color: '#666',
